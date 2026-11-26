@@ -1,0 +1,3175 @@
+<template>
+  <Head title="New Sale" />
+
+  <AppLayout>
+    <div
+      v-if="requiresOpeningBalance"
+      class="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 p-4"
+    >
+      <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <h2 class="text-2xl font-bold text-gray-900">Open Cash Drawer</h2>
+        <p class="mt-2 text-sm text-gray-600">
+          You must enter today opening balance before creating invoices.
+        </p>
+
+        <div class="mt-4">
+          <label class="mb-2 block text-sm font-medium text-gray-700">
+            Opening Balance ({{ page.props.currency || 'Rs.' }})
+          </label>
+          <input
+            v-model.number="openingForm.opening_balance"
+            type="number"
+            min="0"
+            step="0.01"
+            class="w-full rounded-[5px] border border-gray-300 bg-white px-4 py-2.5 text-gray-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+            autofocus
+          />
+          <p v-if="openingForm.errors.opening_balance" class="mt-1 text-sm text-red-500">
+            {{ openingForm.errors.opening_balance }}
+          </p>
+        </div>
+
+        <button
+          @click="submitOpeningBalance"
+          :disabled="openingForm.processing"
+          class="mt-5 w-full rounded-[5px] bg-blue-600 px-4 py-2.5 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+        >
+          {{ openingForm.processing ? 'Saving...' : 'Save Opening Balance' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="h-screen bg-gray-50 p-6 flex flex-col overflow-hidden">
+      <div class="flex flex-col flex-1 min-h-0">
+        <!-- Quotation Selector - Convert Quotation to Sale -->
+        <div
+          v-if="quotations && quotations.length > 0"
+          class="bg-white rounded-xl p-3 shadow-sm mb-3 border border-gray-200 flex-shrink-0"
+        >
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 items-end">
+            <div class="lg:col-span-2">
+              <label class="block text-xs font-semibold text-gray-700 mb-1"
+                >📋 Load from Quotation (Convert to Sale)</label
+              >
+              <select
+                v-model="selectedQuotationId"
+                class="w-full px-4 py-2.5 bg-white text-gray-800 border border-gray-300 rounded-[5px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
+              >
+                <option value="">-- Select a Quotation --</option>
+                <option v-for="q in quotations" :key="q.id" :value="q.id">
+                  {{ q.quotation_no }} - {{ q.customer_name }} - ({{
+                    page.props.currency || "Rs."
+                  }}) {{ parseFloat(q.total_amount||0).toFixed(2) }} - {{ q.quotation_date }}
+                </option>
+              </select>
+            </div>
+            <div>
+              <button
+                @click="loadQuotationData"
+                :disabled="!selectedQuotationId"
+                class="w-full px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-[5px] transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                📥 Load Quotation
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Row - All Controls -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-3 mb-3 flex-shrink-0">
+          <!-- Barcode Scanner -->
+          <div
+            class="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-2.5 shadow-md"
+          >
+            <label class="block text-xs font-medium text-blue-100 mb-1"
+              >🔍 Scan Barcode</label
+            >
+            <div class="flex gap-2">
+              <input
+                ref="barcodeField"
+                type="text"
+                v-model="barcodeInput"
+                @keyup.enter="addByBarcode"
+                placeholder="Scan barcode..."
+                class="flex-1 px-3 py-1.5 bg-white text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-300 font-mono text-sm"
+                autofocus
+              />
+              <button
+                @click="addByBarcode"
+                type="button"
+                class="px-3 bg-white hover:bg-blue-50 text-blue-700 font-semibold rounded-lg transition text-sm"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+
+          <!-- Customer Information -->
+          <div class="bg-white rounded-xl p-2.5 shadow-sm border border-gray-200">
+            <label class="block text-xs font-semibold text-gray-700 mb-1"
+              >👤 Customer</label
+            >
+            <div class="flex gap-2">
+              <div class="relative flex-1">
+                <Combobox v-model="form.customer_id">
+                  <div class="relative">
+                    <ComboboxInput
+                      class="w-full px-3 py-1.5 bg-white text-gray-800 border border-gray-300 rounded-[5px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm pr-10 font-medium"
+                      :display-value="getCustomerName"
+                      placeholder="-- Select Customer --"
+                      title="Select Customer"
+                      @change="customerSearchQuery = $event.target.value"
+                    />
+                    <ComboboxOptions
+                      class="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-[5px] bg-white border border-gray-200 shadow-lg text-sm"
+                    >
+                      <div
+                        v-if="filteredCustomers.length === 0"
+                        class="px-3 py-2 text-gray-500"
+                      >
+                        No customer found
+                      </div>
+                      <ComboboxOption
+                        v-slot="{ active }"
+                        :value="''"
+                      >
+                        <div
+                          :class="[
+                            active ? 'bg-blue-50 text-blue-700' : 'text-gray-700',
+                            'px-3 py-2 cursor-pointer',
+                          ]"
+                        >
+                          -- Select Customer --
+                        </div>
+                      </ComboboxOption>
+                      <ComboboxOption
+                        v-for="customer in filteredCustomers"
+                        :key="customer.id"
+                        v-slot="{ active, selected }"
+                        :value="customer.id"
+                      >
+                        <div
+                          :class="[
+                            active ? 'bg-blue-50 text-blue-700' : 'text-gray-700',
+                            selected ? 'font-semibold' : '',
+                            'px-3 py-2 cursor-pointer',
+                          ]"
+                        >
+                          {{ customer.name }}
+                        </div>
+                      </ComboboxOption>
+                    </ComboboxOptions>
+                  </div>
+                </Combobox>
+                <button
+                  type="button"
+                  @click="openCustomerModal"
+                  class="absolute right-1.5 top-1/2 transform -translate-y-1/2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full p-1 transition"
+                  title="Add New Customer"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Customer Type / Price -->
+          <div class="bg-white rounded-xl p-2.5 shadow-sm border border-gray-200">
+            <label class="block text-xs font-semibold text-gray-700 mb-1"
+              >💰 Price Type</label
+            >
+            <div class="flex gap-2">
+              <label
+                class="flex-1 flex items-center justify-center gap-2 cursor-pointer px-3 py-1.5 rounded-[5px] transition-all duration-200 text-sm"
+                :class="
+                  form.customer_type === 'retail'
+                    ? 'bg-blue-700 text-white font-semibold'
+                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium'
+                "
+              >
+                <input
+                  type="radio"
+                  v-model="form.customer_type"
+                  value="retail"
+                  @change="updateCartPrices"
+                  class="sr-only"
+                />
+                <span>🛒</span>
+                <span>Retail</span>
+              </label>
+              <label
+                class="flex-1 flex items-center justify-center gap-2 cursor-pointer px-3 py-1.5 rounded-[5px] transition-all duration-200 text-sm"
+                :class="
+                  form.customer_type === 'wholesale'
+                    ? 'bg-blue-700 text-white font-semibold'
+                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium'
+                "
+              >
+                <input
+                  type="radio"
+                  v-model="form.customer_type"
+                  value="wholesale"
+                  @change="updateCartPrices"
+                  class="sr-only"
+                />
+                <span>🏢</span>
+                <span>Wholesale</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Register / Cash Drawer -->
+          <div class="bg-white rounded-xl p-2.5 shadow-sm border border-gray-200">
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs font-semibold text-gray-700">🧾 Register</label>
+              <span class="text-xs font-bold text-blue-500 whitespace-nowrap">{{ invoice_no }}</span>
+            </div>
+            <div class="flex items-center justify-between gap-2">
+              <span
+                class="rounded-full px-2 py-0.5 text-xs font-semibold"
+                :class="isCashDrawerOpen ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
+              >
+                {{ isCashDrawerOpen ? 'OPEN' : 'NOT OPENED' }}
+              </span>
+              <span class="text-xs text-gray-600 whitespace-nowrap">
+                {{ page.props.currency || 'Rs.' }} {{ Number(cashDrawerSummary.expected_balance || 0).toFixed(2) }}
+              </span>
+            </div>
+            <div
+              v-if="cashDrawerSummary.difference !== null"
+              class="mt-1 text-[10px] font-semibold text-center"
+              :class="Number(cashDrawerSummary.difference) === 0 ? 'text-green-700' : 'text-amber-700'"
+            >
+              Difference: {{ page.props.currency || 'Rs.' }} {{ Number(cashDrawerSummary.difference || 0).toFixed(2) }}
+            </div>
+            <button
+              v-if="isCashDrawerOpen"
+              @click="showClosingModal = true"
+              class="mt-1.5 w-full rounded-[5px] bg-amber-500 px-3 py-1 text-xs font-semibold text-white transition hover:bg-amber-600"
+            >
+              Close Drawer
+            </button>
+          </div>
+
+        </div>
+
+        <!-- Modern POS Workspace: Categories | Product Grid + Cart | Order Summary -->
+        <div class="pos-main-grid flex-1 min-h-0">
+          <!-- LEFT: Category Sidebar -->
+          <div class="category-sidebar-card bg-white rounded-xl shadow-md border border-gray-200 p-3 flex flex-col">
+            <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide px-1 mb-2 flex-shrink-0">
+              Categories
+            </h3>
+            <div class="category-list flex-1 overflow-y-auto space-y-1.5 pr-1">
+              <button
+                type="button"
+                @click="() => { productFilters.category_id = ''; filterProducts(); }"
+                class="category-btn"
+                :class="productFilters.category_id === '' ? 'category-btn-active' : 'category-btn-inactive'"
+              >
+                <span class="text-lg leading-none">🗂️</span>
+                <span>All Products</span>
+              </button>
+              <button
+                v-for="category in categories"
+                :key="category.id"
+                type="button"
+                @click="() => { productFilters.category_id = category.id; filterProducts(); }"
+                class="category-btn"
+                :class="productFilters.category_id == category.id ? 'category-btn-active' : 'category-btn-inactive'"
+              >
+                <span class="text-lg leading-none">📦</span>
+                <span class="truncate">{{ category.name }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- CENTER: Product Browsing -->
+          <div class="product-browse-card bg-white rounded-xl shadow-md border border-gray-200 p-4 flex flex-col">
+            <div class="flex items-center gap-1.5 mb-2.5 flex-shrink-0">
+              <input
+                ref="productSearchField"
+                type="text"
+                v-model="productFilters.search"
+                @input="filterProducts"
+                placeholder="🔍 Search products by name or search code..."
+                class="flex-1 px-3 py-2 bg-gray-50 text-gray-800 border border-gray-200 rounded-[5px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all text-sm"
+              />
+              <button
+                type="button"
+                @click="openProductModal"
+                title="Advanced filters (brand, type, discount, stock)"
+                class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-[5px] transition font-medium text-sm flex-shrink-0"
+              >
+                ⚙️ Filters
+              </button>
+            </div>
+
+            <div ref="productGridScrollEl" class="product-grid-scroll flex-1 overflow-y-auto" @scroll="onProductGridScroll">
+              <div class="product-grid">
+                <div
+                  v-for="(product, index) in infiniteScrollProducts"
+                  :key="product.id"
+                  :ref="index === selectedProductIndex ? 'selectedProductCardEl' : undefined"
+                  @click="() => { selectedProductIndex = index; addToCart(product); }"
+                  class="product-card"
+                  :class="{
+                    'product-card-active': isProductInCart(product.id),
+                    'product-card-selected': index === selectedProductIndex,
+                  }"
+                >
+                  <div class="p-3">
+                    <div class="flex items-start justify-between gap-1.5 mb-1.5">
+                      <h4
+                        class="text-gray-900 font-semibold text-sm leading-snug line-clamp-2 flex-1"
+                        :title="product.name"
+                      >
+                        {{ product.name }}
+                      </h4>
+                      <span
+                        v-if="isProductInCart(product.id)"
+                        class="flex-shrink-0 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center"
+                      >
+                        {{ getProductCartQuantity(product.id) }}
+                      </span>
+                    </div>
+
+                    <div class="flex items-center justify-between gap-1.5">
+                      <span class="text-blue-700 font-bold text-base">
+                        {{ page.props.currency || "Rs." }}{{ parseFloat(getCurrentPrice(product) || 0).toFixed(2) }}
+                      </span>
+                      <span
+                        v-if="isLowStock(product)"
+                        class="flex-shrink-0 bg-amber-100 text-amber-700 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                      >
+                        Low
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- No products message -->
+              <div v-if="filteredProducts.length === 0" class="text-center py-16">
+                <div class="text-5xl mb-3 text-gray-300">📭</div>
+                <p class="text-gray-500">{{ $t('products.no_products') }}</p>
+                <p class="text-gray-400 text-sm mt-1">Try adjusting your search or category</p>
+              </div>
+            </div>
+
+            <!-- Infinite scroll status (loads more automatically on scroll, no click needed) -->
+            <div
+              v-if="filteredProducts.length > 0"
+              class="flex items-center justify-center gap-2 pt-2 mt-1 border-t border-gray-100 flex-shrink-0"
+            >
+              <span class="text-xs text-gray-500">
+                Showing {{ infiniteScrollProducts.length }} of {{ filteredProducts.length }}
+                <span v-if="hasMoreProducts">· scroll for more</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Cart Items (right column, above Order Summary) -->
+          <div class="cart-card bg-white rounded-xl shadow-md border border-gray-200 p-4 flex flex-col">
+              <div class="flex justify-between items-center mb-3 flex-shrink-0">
+                <h3 class="text-base font-semibold text-gray-800">
+                  Cart Items ({{ form.items.length }})
+                </h3>
+                <div class="flex items-center gap-2">
+                  <button
+                    @click="showHeldBillsModal = true"
+                    :disabled="heldBills.length === 0"
+                    class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs rounded-[5px] transition font-medium"
+                  >
+                    📋 Held Bills ({{ heldBills.length }})
+                  </button>
+                  <button
+                    v-if="form.items.length > 0"
+                    @click="clearCart"
+                    class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs rounded-[5px] transition font-medium"
+                  >
+                    Clear Cart (F8)
+                  </button>
+                </div>
+              </div>
+              <div class="overflow-auto flex-1 min-h-0">
+                <table class="w-full">
+                  <thead class="border-b-2 border-blue-600">
+                    <tr>
+                      <th class="px-4 py-3 text-left text-sm font-semibold text-blue-700">
+                        Product
+                      </th>
+                      <th
+                        class="px-4 py-3 text-right text-sm font-semibold text-blue-700"
+                      >
+                        Price
+                      </th>
+                      <th
+                        class="px-4 py-3 text-center text-sm font-semibold text-blue-700"
+                      >
+                        Qty
+                      </th>
+                      <th
+                        class="px-4 py-3 text-right text-sm font-semibold text-blue-700"
+                      >
+                        Total
+                      </th>
+                      <th
+                        class="px-4 py-3 text-center text-sm font-semibold text-blue-700"
+                      >
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-200">
+                            <tr v-if="form.payments && form.payments.length">
+                              <td colspan="5" class="text-left py-1">
+                                <span v-for="(p, idx) in form.payments" :key="idx" class="mr-4">
+                                  {{ getPaymentTypeText(p.payment_type) }}: {{ page.props.currency || '' }}{{ p.amount }}
+                                </span>
+                              </td>
+                            </tr>
+                    <tr
+                      v-for="(item, index) in form.items"
+                      :key="index"
+                      class="text-gray-700 hover:bg-gray-50 transition"
+                    >
+                      <td class="px-4 py-3">
+                        <div class="flex flex-col gap-1">
+                          <span class="font-medium">{{ item.product_name }}</span>
+                          <span
+                            v-if="item.discount && item.discountApplied"
+                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-500 text-white w-fit"
+                          >
+                            Apply {{ item.discount.value
+                            }}{{
+                              item.discount.type === 0 ? "%" : page.props.currency || ""
+                            }}
+                            Off
+                            <button
+                              @click="removeItemDiscount(index)"
+                              class="ml-1 hover:bg-green-600 rounded-full w-4 h-4 flex items-center justify-center"
+                              title="Remove Discount"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                          <button
+                            v-else-if="item.discount && !item.discountApplied"
+                            @click="applyItemDiscount(index)"
+                            class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500 hover:bg-blue-600 text-white w-fit"
+                          >
+                            Apply {{ item.discount.value
+                            }}{{
+                              item.discount.type === 0 ? "%" : page.props.currency || ""
+                            }}
+                            Off
+                          </button>
+                        </div>
+                      </td>
+                      <td class="px-4 py-3 text-right">
+                        <div class="flex flex-col items-end gap-1">
+                          <span
+                            v-if="item.discountApplied"
+                            class="line-through text-gray-500 text-xs"
+                            >({{ page.props.currency || "Rs." }})
+                            {{ (item.originalPrice||0).toFixed(2) }}</span
+                          >
+                          <input
+                            type="number"
+                            :value="item.price"
+                            @input="updatePrice(index, $event.target.value)"
+                            class="w-24 text-right font-medium bg-white text-gray-800 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                      </td>
+                      <td class="px-4 py-3 text-center">
+                        <div class="flex items-center justify-center gap-2">
+                          <button
+                            @click="updateQuantity(index, item.quantity - 0.5)"
+                            class="w-7 h-7 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded font-bold transition"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            :value="item.quantity"
+                            @input="
+                              updateQuantityInput(index, $event.target.value)
+                            "
+                            class="w-16 text-center font-semibold bg-white text-gray-800 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            min="0.01"
+                            step="0.01"
+                          />
+                          <button
+                            @click="updateQuantity(index, item.quantity + 0.5)"
+                            class="w-7 h-7 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded font-bold transition"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </td>
+                      <td class="px-4 py-3 text-right font-semibold text-green-600">
+                        ({{ page.props.currency || "Rs." }})
+                        {{ ((item.price * item.quantity)||0).toFixed(2) }}
+                      </td>
+                      <td class="px-4 py-3 text-center">
+                        <button
+                          @click="removeItem(index)"
+                          class="text-red-600 hover:text-red-700 hover:bg-red-50 rounded p-1 transition text-xl"
+                        >
+                          🗑️
+                        </button>
+                      </td>
+                    </tr>
+                    <tr v-if="form.items.length === 0">
+                      <td colspan="5" class="px-4 py-8 text-center text-gray-500">
+                        No items in cart - Scan barcode or select product to add
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+          </div>
+
+          <!-- RIGHT: Order Summary / Payment Panel -->
+          <div class="order-summary-card bg-white rounded-xl shadow-md border border-gray-200 p-3.5">
+              <h3 class="text-base font-bold text-gray-800 mb-3 pb-2 border-b border-gray-100">Bill Summary</h3>
+
+              <!-- Calculations -->
+              <div class="space-y-2.5">
+                <div class="flex justify-between text-black text-base font-bold">
+                  <span>Sub Total:</span>
+
+                  <span class="font-semibold"
+                    >({{ page.props.currency || "Rs." }})
+                    {{ (originalTotal||0).toFixed(2) }}</span
+                  >
+                </div>
+
+                <div
+                  v-if="totalProductDiscount > 0"
+                  class="flex justify-between text-green-400"
+                >
+                  <span>Product Discounts:</span>
+                  <span class="font-semibold"
+                    >- ({{ page.props.currency || "Rs." }})
+                    {{ (totalProductDiscount||0).toFixed(2) }}</span
+                  >
+                </div>
+
+                <div class="flex items-center justify-between gap-3">
+                  <label class="text-xs font-medium text-gray-400"
+                    >Custom Discount ({{ page.props.currency || "Rs." }})</label
+                  >
+                  <input
+                    type="number"
+                    v-model.number="form.discount"
+                    min="0"
+                    :max="totalAmount"
+                    class="w-[100px] px-3 py-1.5 text-black rounded-lg focus:ring-2 focus:ring-blue-500 border border-gray-300 text-right"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div class="pt-2.5 border-t-2 border-gray-200">
+                  <div class="flex justify-between text-gray-800 text-lg font-bold">
+                    <span>Net Amount:</span>
+                    <span class="text-blue-400"
+                      >({{ page.props.currency || "Rs." }})
+                      {{ (netAmount||0).toFixed(2) }}</span
+                    >
+                  </div>
+                </div>
+
+                <!-- Multiple Payments List -->
+                <div v-if="form.payments.length > 0" class="bg-gray-200 rounded-lg p-2">
+                  <div class="flex justify-between items-center mb-1.5">
+                    <h4 class="text-xs font-semibold text-black">Payments</h4>
+                    <span class="text-xs text-black-400"
+                      >{{ form.payments.length }} method(s)</span
+                    >
+                  </div>
+                  <div class="space-y-1.5">
+                    <div
+                      v-for="(payment, index) in form.payments"
+                      :key="index"
+                      class="flex justify-between items-center text-xs bg-gray-600 rounded px-2.5 py-1.5"
+                    >
+                      <div>
+                        <span class="font-medium text-white">{{
+                          getPaymentTypeText(payment.payment_type)
+                        }}</span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <span class="text-white font-semibold"
+                          >({{ page.props.currency || "Rs." }})
+                          {{ parseFloat(payment.amount||0).toFixed(2) }}</span
+                        >
+                        <button
+                          @click="removePayment(index)"
+                          class="text-red-400 hover:text-red-300"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="mt-1.5 pt-1.5 border-t border-gray-600 flex justify-between text-xs"
+                  >
+                    <span class="text-black">Total Paid:</span>
+                    <span class="text-black font-semibold"
+                      >({{ page.props.currency || "Rs." }})
+                      {{ (totalPaid||0).toFixed(2) }}</span
+                    >
+                  </div>
+                </div>
+
+                <div class="pt-2.5 border-t border-gray-700">
+                  <div
+                    v-if="change > 0"
+                    class="flex justify-between text-base font-semibold text-blue-400"
+                  >
+                    <span>Change:</span>
+                    <span
+                      >({{ page.props.currency || "Rs." }}) {{ (change||0).toFixed(2) }}</span
+                    >
+                  </div>
+                  <div
+                    v-else
+                    class="flex justify-between text-base font-semibold"
+                    :class="{
+                      'text-red-600': balance > 0,
+                      'text-blue-600': balance <= 0,
+                    }"
+                  >
+                    <span>{{ balance > 0 ? "Balance Due:" : "Change:" }}</span>
+                    <span
+                      >({{ page.props.currency || "Rs." }})
+                      {{ Math.abs(balance||0).toFixed(2) }}</span
+                    >
+                  </div>
+                </div>
+              </div>
+
+              <!-- Payment + Submit Buttons (side by side) -->
+              <div class="mt-3 flex gap-2.5">
+                <button
+                  @click="holdBill"
+                  :disabled="form.items.length === 0"
+                  class="flex-1 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-200 disabled:cursor-not-allowed text-white font-bold py-3 px-3 rounded-xl transition-all duration-150 text-sm shadow-md hover:shadow-lg active:scale-[0.98]"
+                >
+                  ⏸️ Hold Bill
+                </button>
+
+                <button
+                  @click="openPaymentModal"
+                  :disabled="form.items.length === 0"
+                  class="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-200 disabled:cursor-not-allowed text-white font-bold py-3 px-3 rounded-xl transition-all duration-150 text-sm shadow-md hover:shadow-lg active:scale-[0.98]"
+                >
+                  💳 Add Payment
+                </button>
+
+                <button
+                  @click="submitSale"
+                  :disabled="
+                    form.items.length === 0 || form.payments.length === 0 || form.processing
+                  "
+                  class="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-3 px-3 rounded-xl transition-all duration-150 text-sm shadow-md hover:shadow-lg active:scale-[0.98]"
+                >
+                  <span v-if="form.processing">⏳ Processing...</span>
+                  <span v-else>✅ Complete Salesd (F9)</span>
+                </button>
+              </div>
+
+              <!-- Quick Actions -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Product Selection Modal -->
+    <Modal :show="showProductModal" @close="closeProductModal" max-width="full">
+      <div class="bg-white h-screen flex flex-col">
+        <!-- Modal Header -->
+        <div class="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-4 flex-shrink-0">
+          <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+            <div>
+              <h2 class="text-xl sm:text-2xl font-bold text-gray-900">Browse Products</h2>
+              <p class="text-gray-500 text-sm mt-1">
+                {{ $t('sales.click_to_add') }} • <span class="font-medium text-gray-700">{{ form.items.length }} {{ $t('sales.items_in_cart') }}</span>
+              </p>
+            </div>
+            <button
+              @click="closeProductModal"
+              class="px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-lg transition-all shadow-sm"
+            >
+              {{ $t('common.done') }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="px-4 sm:px-6 lg:px-8 py-3 bg-white border-b border-gray-100 flex-shrink-0">
+          <div class="flex flex-wrap items-end gap-2 lg:gap-3">
+            <!-- Search Input -->
+            <div class="flex-1 min-w-[200px]">
+              <input
+                type="text"
+                v-model="productFilters.search"
+                @input="filterProducts"
+                placeholder="Search products by name or search code..."
+                class="w-full px-3 py-2 bg-gray-50 text-gray-800 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-300 focus:border-gray-400 focus:bg-white transition-all text-sm"
+              />
+            </div>
+            <div class="w-[120px] lg:w-[140px]">
+              <select
+                v-model="productFilters.brand_id"
+                @change="filterProducts"
+                class="w-full px-2 py-2 bg-gray-50 text-gray-800 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-300 focus:border-gray-400 text-sm"
+              >
+                <option value="">All Brands</option>
+                <option v-for="brand in brands" :key="brand.id" :value="brand.id">
+                  {{ brand.name }}
+                </option>
+              </select>
+            </div>
+            <div class="w-[120px] lg:w-[140px]">
+              <select
+                v-model="productFilters.category_id"
+                @change="filterProducts"
+                class="w-full px-2 py-2 bg-gray-50 text-gray-800 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-300 focus:border-gray-400 text-sm"
+              >
+                <option value="">All Categories</option>
+                <option
+                  v-for="category in categories"
+                  :key="category.id"
+                  :value="category.id"
+                >
+                  {{ category.name }}
+                </option>
+              </select>
+            </div>
+            <div class="w-[120px] lg:w-[140px]">
+              <select
+                v-model="productFilters.type_id"
+                @change="filterProducts"
+                class="w-full px-2 py-2 bg-gray-50 text-gray-800 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-300 focus:border-gray-400 text-sm"
+              >
+                <option value="">All Types</option>
+                <option v-for="type in types" :key="type.id" :value="type.id">
+                  {{ type.name }}
+                </option>
+              </select>
+            </div>
+            <div class="w-[120px] lg:w-[140px]">
+              <select
+                v-model="productFilters.discount_id"
+                @change="filterProducts"
+                class="w-full px-2 py-2 bg-gray-50 text-gray-800 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-300 focus:border-gray-400 text-sm"
+              >
+                <option value="">All Discounts</option>
+                <option
+                  v-for="discount in discounts"
+                  :key="discount.id"
+                  :value="discount.id"
+                >
+                  {{ discount.name }} ({{ discount.percentage }}%)
+                </option>
+              </select>
+            </div>
+            <!-- Stock Filter Buttons -->
+            <div class="flex items-center gap-1">
+              <button
+                @click="() => { productFilters.stock_filter = ''; filterProducts(); }"
+                :class="productFilters.stock_filter === '' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700'"
+                class="px-2.5 py-2 text-sm rounded-lg border border-gray-200 font-medium transition-all"
+              >
+                All
+              </button>
+              <button
+                @click="() => { productFilters.stock_filter = 'low'; filterProducts(); }"
+                :class="productFilters.stock_filter === 'low' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700'"
+                class="px-2.5 py-2 text-sm rounded-lg border border-gray-200 font-medium transition-all"
+              >
+                Low
+              </button>
+              <button
+                @click="() => { productFilters.stock_filter = 'out'; filterProducts(); }"
+                :class="productFilters.stock_filter === 'out' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700'"
+                class="px-2.5 py-2 text-sm rounded-lg border border-gray-200 font-medium transition-all"
+              >
+                Out
+              </button>
+            </div>
+            <button
+              @click="clearFilters"
+              class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded-lg transition font-medium border border-gray-200"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <!-- Products Grid -->
+        <div class="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 bg-white">
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
+            <div
+              v-for="product in paginatedProducts"
+              :key="product.id"
+              @click="addToCart(product)"
+              class="bg-white border border-gray-100 rounded-xl overflow-hidden transition-all relative hover:shadow-lg hover:border-gray-300 cursor-pointer group"
+              :class="{
+                'ring-2 ring-gray-900 shadow-lg border-gray-900':
+                  isProductInCart(product.id),
+              }"
+            >
+              <!-- Out of Stock / Low Stock Badges -->
+              <div
+                v-if="isLowStock(product)"
+                class="absolute top-2 left-2 bg-gray-700 text-white text-xs font-semibold px-2.5 py-1 rounded-full z-10"
+              >
+                Low Stock
+              </div>
+              <!-- Added to Cart Badge -->
+              <div
+                v-if="isProductInCart(product.id)"
+                class="absolute top-2 right-2 bg-gray-900 text-white text-xs font-bold px-2.5 py-1 rounded-full z-10"
+              >
+                {{ getProductCartQuantity(product.id) }}
+              </div>
+              <div
+                class="aspect-square bg-gray-50 flex items-center justify-center overflow-hidden group-hover:bg-gray-100 transition-colors"
+              >
+                <img
+                  v-if="product.image"
+                  :src="'/storage/' + product.image"
+                  :alt="product.name"
+                  class="w-full h-full object-cover"
+                  @error="$event.target.src = '/storage/products/default.png'"
+                />
+                <span v-else class="text-5xl text-gray-300">📦</span>
+              </div>
+              <div class="p-3">
+                <h3
+                  class="text-gray-900 font-semibold text-sm mb-2 truncate"
+                  :title="product.name"
+                >
+                  {{ product.name }}
+                </h3>
+                <div class="space-y-1 text-xs text-gray-600">
+                  <div class="flex justify-between">
+                    <span>Retail:</span>
+                    <span class="font-semibold text-gray-900"
+                      >({{ page.props.currency || "Rs." }})
+                      {{ parseFloat(product.retail_price||0).toFixed(2) }}</span
+                    >
+                  </div>
+                  <div class="flex justify-between">
+                    <span>Wholesale:</span>
+                    <span class="font-semibold text-gray-700"
+                      >({{ page.props.currency || "Rs." }})
+                      {{ parseFloat(product.wholesale_price||0).toFixed(2) }}</span
+                    >
+                  </div>
+                  <div class="flex justify-between mt-2 pt-2 border-t border-gray-100">
+                    <span>Stock:</span>
+                    <span
+                      class="font-semibold"
+                      :class="
+                        isLowStock(product)
+                          ? 'text-gray-500'
+                          : product.shop_quantity_in_sales_unit > 10
+                          ? 'text-gray-900'
+                          : 'text-gray-600'
+                      "
+                    >
+                      {{ product.shop_quantity_in_sales_unit }}
+                      <span v-if="isLowStock(product)" class="text-[10px]"> (Low)</span>
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Quantity Input -->
+                <!-- <div class="mt-3 pt-3 border-t border-gray-100">
+                  <div class="flex items-center gap-2">
+                    <input
+                      type="number"
+                      v-model.number="productQuantities[product.id]"
+                      min="1"
+                      class="flex-1 px-2 py-1.5 bg-gray-50 text-gray-800 border border-gray-200 text-center rounded-lg text-sm focus:ring-2 focus:ring-gray-300 focus:border-gray-400 focus:bg-white"
+                      @click.stop
+                    />
+                    <button
+                      @click.stop="addToCart(product)"
+                      class="px-3 py-1.5 bg-gray-900 hover:bg-gray-800 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div> -->
+              </div>
+            </div>
+          </div>
+
+          <!-- No products message -->
+          <div v-if="filteredProducts.length === 0" class="text-center py-16">
+            <div class="text-6xl mb-4 text-gray-300">📭</div>
+            <p class="text-gray-500 text-lg">{{ $t('products.no_products') }}</p>
+            <p class="text-gray-400 text-sm mt-1">Try adjusting your filters</p>
+          </div>
+        </div>
+
+        <!-- Pagination -->
+        <div
+          v-if="filteredProducts.length > 0"
+          class="px-4 sm:px-6 lg:px-8 py-4 bg-white border-t border-gray-100 flex-shrink-0"
+        >
+          <div class="flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="text-gray-500 text-sm">
+              {{ $t('common.showing') }} <span class="font-medium text-gray-700">{{ startIndex + 1 }}</span> {{ $t('common.to') }}
+              <span class="font-medium text-gray-700">{{ Math.min(endIndex, filteredProducts.length) }}</span> {{ $t('common.of') }}
+              <span class="font-medium text-gray-700">{{ filteredProducts.length }}</span> {{ $t('products.title') }}
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                @click="prevPage"
+                :disabled="currentPage === 1"
+                class="px-4 py-2 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed text-gray-700 rounded-lg transition font-medium text-sm"
+              >
+                ← Previous
+              </button>
+              <div
+                class="flex items-center px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg"
+              >
+                <span class="font-medium text-sm">{{ currentPage }} / {{ totalPages }}</span>
+              </div>
+              <button
+                @click="nextPage"
+                :disabled="currentPage === totalPages"
+                class="px-4 py-2 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-100 disabled:text-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition font-medium text-sm"
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Modal>
+
+    <!-- Payment Modal -->
+    <Modal
+      :show="showPaymentModal"
+      @close="() => (showPaymentModal = false)"
+      max-width="md"
+    >
+      <div class="p-8 bg-white">
+        <div class="mb-6">
+          <h2 class="text-2xl font-bold text-gray-800 mb-2">Add Payment Method</h2>
+          <p class="text-gray-600 text-sm">
+            Remaining:
+            <span class="text-red-600 font-semibold"
+              >({{ page.props.currency || "Rs." }})
+              {{ balance > 0 ? balance.toFixed(2) : "0.00" }}</span
+            >
+          </p>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                ref="cashPaymentButton"
+                type="button"
+                @click="selectPaymentMethod(0)"
+                @keydown.enter.prevent.stop="selectPaymentMethod(0)"
+                @keydown.space.prevent.stop="selectPaymentMethod(0)"
+                :class="[
+                  'px-4 py-2.5 rounded-[5px] text-sm font-semibold transition border',
+                  paymentMethod === 0
+                    ? 'bg-green-600 border-green-600 text-white'
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                ]"
+              >
+                Cash
+              </button>
+              <button
+                type="button"
+                @click="selectPaymentMethod(1)"
+                @keydown.enter.prevent.stop="selectPaymentMethod(1)"
+                @keydown.space.prevent.stop="selectPaymentMethod(1)"
+                :class="[
+                  'px-4 py-2.5 rounded-[5px] text-sm font-semibold transition border',
+                  paymentMethod === 1
+                    ? 'bg-blue-600 border-blue-600 text-white'
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                ]"
+              >
+                Card
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Amount ({{ page.props.currency || "Rs." }})</label
+            >
+            <input
+              ref="paymentAmountField"
+              type="text"
+              :value="paymentAmount"
+              @input="onPaymentAmountInput"
+              @keydown.enter.prevent="addPayment"
+              @keydown.tab="finalizePaymentAmount"
+              inputmode="decimal"
+              class="w-full px-4 py-3 bg-white text-gray-800 border border-gray-300 rounded-[5px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
+              placeholder="0.00"
+            />
+          </div>
+
+          <div>
+            <div class="grid grid-cols-5 gap-2">
+              <button
+                v-for="value in [100, 500, 1000, 2000, 5000]"
+                :key="value"
+                type="button"
+                tabindex="-1"
+                @click="addQuickAmount(value)"
+                class="py-2 rounded-[5px] border border-gray-300 bg-gray-50 text-gray-700 text-sm font-semibold hover:bg-gray-100 transition"
+              >
+                {{ value }}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <div class="grid grid-cols-3 gap-2">
+              <button
+                v-for="digit in ['1','2','3','4','5','6','7','8','9','C','0','←']"
+                :key="digit"
+                type="button"
+                tabindex="-1"
+                @click="handleKeypadPress(digit)"
+                :class="[
+                  'py-3 rounded-[5px] font-bold transition',
+                  digit === 'C'
+                    ? 'bg-red-500 hover:bg-red-600 text-white'
+                    : digit === '←'
+                    ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                    : 'bg-gray-800 hover:bg-gray-900 text-white'
+                ]"
+              >
+                {{ digit }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-3 mt-6">
+          <button
+            @click="addPayment"
+            class="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-[5px] transition"
+          >
+            Add Payment
+          </button>
+          <button
+            @click="showPaymentModal = false"
+            class="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-[5px] transition"
+          >
+            {{ $t('common.close') }}
+          </button>
+        </div>
+      </div>
+    </Modal>
+
+    <!-- Held Bills Modal -->
+    <Modal :show="showHeldBillsModal" @close="() => (showHeldBillsModal = false)" max-width="lg">
+      <div class="p-6 bg-white">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold text-gray-800">📋 Held Bills</h2>
+          <button
+            @click="showHeldBillsModal = false"
+            class="text-gray-400 hover:text-gray-600 text-xl leading-none"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div v-if="heldBills.length === 0" class="text-center py-10 text-gray-500">
+          No held bills.
+        </div>
+
+        <div v-else class="space-y-3 max-h-[60vh] overflow-y-auto">
+          <div
+            v-for="bill in heldBills"
+            :key="bill.id"
+            class="border border-gray-200 rounded-xl p-3.5 flex items-center justify-between gap-3"
+          >
+            <div>
+              <div class="font-semibold text-gray-800">
+                {{ bill.customer_name }}
+                <span class="text-xs font-normal text-gray-400">· {{ bill.customer_type }}</span>
+              </div>
+              <div class="text-xs text-gray-500 mt-0.5">
+                {{ bill.items.length }} item(s) · Held at {{ formatHeldTime(bill.held_at) }}
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="font-bold text-blue-700 text-sm">
+                {{ page.props.currency || "Rs." }} {{ (bill.total || 0).toFixed(2) }}
+              </span>
+              <button
+                @click="resumeHeldBill(bill)"
+                class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-[5px] transition"
+              >
+                Resume
+              </button>
+              <button
+                @click="deleteHeldBill(bill)"
+                class="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-semibold rounded-[5px] transition"
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Modal>
+
+    <!-- Success Modal -->
+    <Modal :show="showSuccessModal" @close="closeModal" max-width="md">
+      <div class="p-8 bg-white">
+        <div class="text-center">
+          <div
+            class="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-black mb-4"
+          >
+            <svg
+              class="h-12 w-12 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="3"
+                d="M5 13l4 4L19 7"
+              ></path>
+            </svg>
+          </div>
+          <h2 class="text-3xl font-bold text-gray-900 mb-2">Payment Successful!</h2>
+          <p class="text-gray-600 mb-6">Order Payment is Successful!</p>
+          <p class="text-sm text-gray-500 mb-6">
+            Invoice: <span class="font-semibold">{{ completedInvoice }}</span>
+          </p>
+
+          <div class="flex gap-3 justify-center">
+            <button
+              ref="printReceiptButton"
+              type="button"
+              @click="printAndClose"
+              @keydown.enter.prevent.stop="printAndClose"
+              class="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition shadow-lg"
+            >
+              PRINT RECEIPT
+            </button>
+            <button
+              @click="closeModal"
+              class="px-8 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition shadow-lg"
+            >
+              {{ $t('common.close') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Modal>
+
+    <Modal :show="showClosingModal" @close="() => (showClosingModal = false)" max-width="md">
+      <div class="bg-white p-8">
+        <h2 class="text-2xl font-bold text-gray-800">Close Cash Drawer</h2>
+        <p class="mt-1 text-sm text-gray-500">
+          Expected balance is calculated as opening + sales - cash expenses.
+        </p>
+
+        <div class="mt-4 space-y-2 rounded-lg bg-gray-50 p-4 text-sm">
+          <div class="flex justify-between text-gray-700">
+            <span>Expected Balance</span>
+            <span class="font-semibold">
+              {{ page.props.currency || 'Rs.' }} {{ Number(cashDrawerSummary.expected_balance || 0).toFixed(2) }}
+            </span>
+          </div>
+          <div class="flex justify-between text-gray-700">
+            <span>Sales Total</span>
+            <span class="font-semibold">
+              {{ page.props.currency || 'Rs.' }} {{ Number(cashDrawerSummary.sales_total || 0).toFixed(2) }}
+            </span>
+          </div>
+          <div class="flex justify-between text-gray-700">
+            <span>Cash Expenses</span>
+            <span class="font-semibold">
+              {{ page.props.currency || 'Rs.' }} {{ Number(cashDrawerSummary.cash_expenses || 0).toFixed(2) }}
+            </span>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <label class="mb-2 block text-sm font-medium text-gray-700">
+            Closing Balance ({{ page.props.currency || 'Rs.' }})
+          </label>
+          <input
+            v-model.number="closingForm.closing_balance"
+            type="number"
+            min="0"
+            step="0.01"
+            class="w-full rounded-[5px] border border-gray-300 bg-white px-4 py-2.5 text-gray-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+          />
+          <p v-if="closingForm.errors.closing_balance" class="mt-1 text-sm text-red-500">
+            {{ closingForm.errors.closing_balance }}
+          </p>
+        </div>
+
+        <div class="mt-6 flex gap-3">
+          <button
+            @click="showClosingModal = false"
+            class="flex-1 rounded-[5px] bg-gray-600 px-4 py-2.5 font-semibold text-white transition hover:bg-gray-700"
+          >
+            {{ $t('common.cancel') }}
+          </button>
+          <button
+            @click="submitClosingBalance"
+            :disabled="closingForm.processing"
+            class="flex-1 rounded-[5px] bg-amber-500 px-4 py-2.5 font-semibold text-white transition hover:bg-amber-600 disabled:opacity-60"
+          >
+            {{ closingForm.processing ? 'Saving...' : 'Save Closing Balance' }}
+          </button>
+        </div>
+      </div>
+    </Modal>
+
+    <!-- Print Receipt (Hidden) -->
+    <div id="printReceipt" class="hidden">
+      <div class="p-4 mx-auto" :style="{ width: billWidth, fontFamily: 'monospace' }">
+        <div class="text-center mb-2">
+          <div style="margin-bottom: 6px">
+            <img
+              :src="'/images/logo.png'"
+              alt="logo"
+              style="max-height: 40px; max-width: 100%; object-fit: contain"
+            />
+          </div>
+          <h1 class="text-xl font-bold">{{ bill.company_name || "RECEIPT" }}</h1>
+          <p class="text-sm">Invoice: {{ completedInvoice }}</p>
+          <p class="text-sm">Date: {{ completedSaleDate }}</p>
+        </div>
+        <hr class="my-2 border-black" />
+        <div class="mb-2 text-sm">
+          <p><strong>Customer:</strong> {{ completedCustomer }}</p>
+          <p><strong>Payment:</strong> {{ getPaymentTypeText(completedPaymentType) }}</p>
+          <p v-if="bill.address">{{ bill.address }}</p>
+          <p v-if="bill.mobile_1 || bill.mobile_2">
+            Tel: {{ [bill.mobile_1, bill.mobile_2].filter(Boolean).join(" / ") }}
+          </p>
+          <p v-if="bill.email">{{ bill.email }}</p>
+          <p v-if="bill.website_url">{{ bill.website_url }}</p>
+        </div>
+        <hr class="my-2 border-black" />
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-black">
+              <th class="text-left py-1">Item</th>
+              <th class="text-center py-1">Qty</th>
+              <th class="text-right py-1">Price</th>
+              <th class="text-right py-1">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in completedItems" :key="item.product_id">
+              <td class="text-left py-1">{{ item.product_name }}</td>
+<td class="item-qty">${item.quantity} ${item.sale_unit || 'N/A'}</td>
+              <td class="text-right py-1">{{ (item.price||0).toFixed(2) }}</td>
+              <td class="text-right py-1">
+                {{ ((item.price * item.quantity)||0).toFixed(2) }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <hr class="my-2 border-black" />
+        <div class="text-sm space-y-1">
+          <div class="flex justify-between">
+            <span>Subtotal:</span>
+            <span>({{ page.props.currency || "Rs." }}) {{ completedTotal }}</span>
+          </div>
+          <div
+            v-if="parseFloat(completedProductDiscount) > 0"
+            class="flex justify-between text-green-600"
+          >
+            <span>Product Discounts:</span>
+            <span
+              >- ({{ page.props.currency || "Rs." }}) {{ completedProductDiscount }}</span
+            >
+          </div>
+          <div v-if="parseFloat(completedDiscount) > 0" class="flex justify-between">
+            <span>Custom Discount:</span>
+            <span>- ({{ page.props.currency || "Rs." }}) {{ completedDiscount }}</span>
+          </div>
+          <div
+            class="flex justify-between font-bold text-base pt-2 border-t border-black"
+          >
+            <span>Net Total:</span>
+            <span>({{ page.props.currency || "Rs." }}) {{ completedNetAmount }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Paid:</span>
+            <span>({{ page.props.currency || "Rs." }}) {{ completedPaid }}</span>
+          </div>
+          <div class="flex justify-between font-bold">
+            <span>{{
+              parseFloat(completedBalance) > 0 ? "Balance Due:" : "Change:"
+            }}</span>
+            <span
+              >({{ page.props.currency || "Rs." }})
+              {{( Math.abs(parseFloat(completedBalance))||0).toFixed(2) }}</span
+            >
+          </div>
+          <!-- <div class="flex justify-between font-bold mt-2 bg-green-100 text-green-800 rounded px-2 py-1">
+            <span>ඔබ ලැබූ ලාභය:</span>
+            <span>({{ page.props.currency || "Rs." }}) {{ completedItems.reduce((sum, item) => sum + ((item.market_price || 0) - (item.price || 0)) * item.quantity, 0).toFixed(2) }}</span>
+          </div> -->
+          <div class="flex justify-between mt-1">
+            <span>භාණ්ඩ ප්‍රමාණය:</span>
+            <span>{{ completedItems.reduce((sum, item) => sum + item.quantity, 0) }}</span>
+          </div>
+        </div>
+        <hr class="my-4 border-black" />
+        <p class="text-center text-xs">
+          {{ bill.footer_description || "Thank you for your business - POS System By Online මුදලාලි!" }}
+        </p>
+      </div>
+    </div>
+
+    <!-- Customer Create Modal -->
+    <CustomerCreateModal v-model:open="showQuickAddCustomer" />
+  </AppLayout>
+</template>
+
+<script setup>
+import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
+import { Head, useForm, router, usePage } from "@inertiajs/vue3";
+import { useI18n } from "vue-i18n";
+const page = usePage();
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
+import { logActivity } from "@/composables/useActivityLog";
+import {
+  Combobox,
+  ComboboxInput,
+  ComboboxOptions,
+  ComboboxOption,
+} from "@headlessui/vue";
+import Modal from "@/Components/Modal.vue";
+import CustomerCreateModal from "@/Pages/Customers/Components/CustomerCreateModal.vue";
+
+useI18n();
+
+const props = defineProps({
+  invoice_no: String,
+  customers: Array,
+  products: Array,
+  brands: Array,
+  categories: Array,
+  types: Array,
+  discounts: Array,
+  billSetting: Object,
+  quotations: Array,
+  cashDrawer: Object,
+  cashDrawerSummary: {
+    type: Object,
+    default: () => ({
+      sales_total: 0,
+      cash_expenses: 0,
+      expected_balance: 0,
+      difference: null,
+    }),
+  },
+});
+
+// Only show active customers (status == '1' or 1)
+const activeCustomers = computed(() => {
+  return props.customers.filter(
+    (c) => c.status === '1' || c.status === 1
+  );
+});
+
+// Searchable customer dropdown
+const customerSearchQuery = ref('');
+const filteredCustomers = computed(() => {
+  if (customerSearchQuery.value.trim() === '') {
+    return activeCustomers.value;
+  }
+  const query = customerSearchQuery.value.toLowerCase().trim();
+  return activeCustomers.value.filter((c) => c.name.toLowerCase().includes(query));
+});
+const getCustomerName = (customerId) => {
+  if (!customerId) return '';
+  return activeCustomers.value.find((c) => c.id === customerId)?.name || '';
+};
+
+const form = useForm({
+  invoice_no: props.invoice_no,
+  customer_id: '', // Ensure default is empty
+  customer_type: "retail", // retail or wholesale
+  sale_date: new Date().toISOString().split("T")[0],
+  items: [],
+  discount: 0,
+  payment_type: 0,
+  paid_amount: 0,
+  payments: [], // Multiple payments
+  quotation_id: null, // Track loaded quotation for status update
+});
+
+const selectedProduct = ref(null);
+const selectedQuantity = ref(1);
+const barcodeInput = ref("");
+const barcodeField = ref(null);
+const productSearchField = ref(null);
+const cashPaymentButton = ref(null);
+const paymentAmountField = ref(null);
+const printReceiptButton = ref(null);
+const showSuccessModal = ref(false);
+const showPaymentModal = ref(false);
+const showProductModal = ref(false);
+const showQuickAddCustomer = ref(false);
+const showClosingModal = ref(false);
+const showHeldBillsModal = ref(false);
+const paymentMethod = ref(0);
+const paymentAmount = ref("");
+const completedInvoice = ref("");
+const completedSaleDate = ref("");
+const completedCustomer = ref("");
+const completedPaymentType = ref(0);
+const completedItems = ref([]);
+const completedTotal = ref("0.00");
+const completedProductDiscount = ref("0.00");
+const completedDiscount = ref("0.00");
+const completedNetAmount = ref("0.00");
+const completedPaid = ref("0.00");
+const completedBalance = ref("0.00");
+
+const openingForm = useForm({
+  opening_balance: null,
+});
+
+const closingForm = useForm({
+  closing_balance: null,
+});
+
+const isCashDrawerOpen = computed(() => {
+  return !!(props.cashDrawer && props.cashDrawer.status === "open");
+});
+
+const requiresOpeningBalance = computed(() => {
+  return !isCashDrawerOpen.value;
+});
+
+const submitOpeningBalance = () => {
+  if (openingForm.opening_balance === null || openingForm.opening_balance === "") {
+    openingForm.setError("opening_balance", "Opening balance is required.");
+    return;
+  }
+
+  openingForm.post(route("cash-drawer.open"), {
+    preserveScroll: true,
+    onSuccess: () => {
+      openingForm.reset();
+      router.visit(route("sales.index"));
+    },
+  });
+};
+
+const submitClosingBalance = () => {
+  if (closingForm.closing_balance === null || closingForm.closing_balance === "") {
+    closingForm.setError("closing_balance", "Closing balance is required.");
+    return;
+  }
+
+  closingForm.post(route("cash-drawer.close"), {
+    preserveScroll: true,
+    onSuccess: () => {
+      showClosingModal.value = false;
+      closingForm.reset();
+      router.visit(route("sales.index"));
+    },
+  });
+};
+
+// Quotation selector
+const selectedQuotationId = ref("");
+
+// Load quotation data into the sale form
+const loadQuotationData = () => {
+  if (!selectedQuotationId.value) {
+    return;
+  }
+
+  const quotation = props.quotations.find((q) => q.id == selectedQuotationId.value);
+  if (!quotation) {
+    alert("Quotation not found");
+    return;
+  }
+
+  // Confirm before loading
+  if (form.items.length > 0) {
+    if (!confirm("This will replace current cart items. Continue?")) {
+      selectedQuotationId.value = "";
+      return;
+    }
+  }
+
+  // Load quotation data into form
+  form.customer_id = quotation.customer_id || "";
+  form.customer_type = quotation.customer_type || "retail";
+  form.discount = quotation.discount || 0;
+  form.quotation_id = quotation.id; // Store quotation ID for status update when sale completes
+  form.items = quotation.items.map((item) => ({
+    product_id: item.product_id,
+    product_name: item.product_name,
+    price: parseFloat(item.price),
+    market_price: parseFloat(item.market_price) || 0,
+    retail_price: parseFloat(item.retail_price),
+    wholesale_price: parseFloat(item.wholesale_price),
+    quantity: item.quantity,
+     sale_unit: item.sale_unit || 'N/A',
+  }));
+
+  // Reset quotation selector
+  selectedQuotationId.value = "";
+
+  alert("Quotation data loaded! Add payment to complete the sale.");
+};
+
+// Bill settings helper
+const bill = props.billSetting || {};
+const billWidth = computed(() => {
+  const allowed = ["58mm", "80mm", "112mm", "210mm"];
+  const raw = (bill.print_size || "80mm").toString();
+  return allowed.includes(raw) ? raw : "80mm";
+});
+
+// Product modal filters and pagination
+const productFilters = ref({
+  search: "",
+  brand_id: "",
+  category_id: "",
+  type_id: "",
+  discount_id: "",
+  stock_filter: "", // '', 'low', 'out'
+});
+
+const handleCustomerCreated = (customer) => {
+  // Add the new customer to the dropdown immediately
+  if (customer && customer.name) {
+    props.customers.push({
+      id: Date.now(), // Temporary ID, will be replaced on reload
+      name: customer.name,
+    });
+    form.customer_id = props.customers[props.customers.length - 1].id;
+  }
+  showQuickAddCustomer.value = false;
+};
+const filteredProducts = ref([]);
+const currentPage = ref(1);
+const itemsPerPage = ref(24);
+const productQuantities = ref({});
+
+// Infinite scroll for the always-visible product grid (embedded workspace only;
+// the Advanced Filters modal keeps its existing click-based Prev/Next pagination).
+const embeddedVisibleCount = ref(itemsPerPage.value);
+const productGridScrollEl = ref(null);
+const infiniteScrollProducts = computed(() => {
+  return filteredProducts.value.slice(0, embeddedVisibleCount.value);
+});
+
+// Keyboard navigation: currently highlighted product card (Left/Right arrows, Enter to add)
+const selectedProductIndex = ref(-1);
+const selectedProductCardEl = ref(null);
+
+// Keyboard navigation: category list including the "All Products" entry (Up/Down arrows)
+const categoryNavList = computed(() => [{ id: '' }, ...props.categories]);
+const hasMoreProducts = computed(() => {
+  return embeddedVisibleCount.value < filteredProducts.value.length;
+});
+const onProductGridScroll = (event) => {
+  const el = event.target;
+  if (!hasMoreProducts.value) return;
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 150) {
+    embeddedVisibleCount.value = Math.min(
+      embeddedVisibleCount.value + itemsPerPage.value,
+      filteredProducts.value.length
+    );
+  }
+};
+// If the first batch doesn't fill/overflow the grid area (e.g. a tall screen or
+// a narrow result set), there is no scrollbar for onProductGridScroll to react to,
+// so keep loading batches until it overflows or every matching product is shown.
+const fillProductGridIfNeeded = async () => {
+  await nextTick();
+  const el = productGridScrollEl.value;
+  if (!el) return;
+  while (hasMoreProducts.value && el.scrollHeight <= el.clientHeight + 4) {
+    embeddedVisibleCount.value = Math.min(
+      embeddedVisibleCount.value + itemsPerPage.value,
+      filteredProducts.value.length
+    );
+    await nextTick();
+  }
+};
+watch(filteredProducts, () => {
+  embeddedVisibleCount.value = itemsPerPage.value;
+  selectedProductIndex.value = -1;
+  fillProductGridIfNeeded();
+});
+
+watch(showSuccessModal, (visible) => {
+  if (visible) {
+    nextTick(() => {
+      printReceiptButton.value?.focus();
+    });
+  }
+});
+
+// Keep the keyboard-selected product card visible when navigating with Left/Right
+watch(selectedProductIndex, async () => {
+  await nextTick();
+  const el = Array.isArray(selectedProductCardEl.value)
+    ? selectedProductCardEl.value[0]
+    : selectedProductCardEl.value;
+  el?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+});
+
+// Calculations
+// Original total before product discounts
+const originalTotal = computed(() => {
+  return form.items.reduce((sum, item) => {
+    const price =
+      item.discountApplied && item.originalPrice ? item.originalPrice : item.price;
+    return sum + price * item.quantity;
+  }, 0);
+});
+
+const totalAmount = computed(() => {
+  return form.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+});
+
+// Total product discounts applied
+const totalProductDiscount = computed(() => {
+
+  const result = form.items.reduce((sum, item, index) => {
+    if (item.discountApplied && item.originalPrice) {
+      const itemDiscount = (item.originalPrice - item.price) * item.quantity;
+      return sum + itemDiscount;
+    }
+
+    return sum;
+  }, 0);
+  return result;
+});
+
+const netAmount = computed(() => {
+  return totalAmount.value - form.discount;
+});
+
+const totalPaid = computed(() => {
+  return form.payments.reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
+});
+
+const balance = computed(() => {
+  return netAmount.value - totalPaid.value;
+});
+
+const change = computed(() => {
+  // Only show change if cash payment and overpaid
+  const cashPaid = form.payments
+    .filter((p) => p.payment_type === 0)
+    .reduce((sum, p) => sum + parseFloat(p.amount), 0);
+  return cashPaid > netAmount.value ? cashPaid - netAmount.value : 0;
+});
+
+// Product modal pagination computed properties
+const paginatedProducts = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value;
+  const end = start + itemsPerPage.value;
+  return filteredProducts.value.slice(start, end);
+});
+
+const totalPages = computed(() => {
+  return Math.ceil(filteredProducts.value.length / itemsPerPage.value);
+});
+
+const startIndex = computed(() => {
+  return (currentPage.value - 1) * itemsPerPage.value;
+});
+
+const endIndex = computed(() => {
+  return startIndex.value + itemsPerPage.value;
+});
+
+// Get payment type text
+const getPaymentTypeText = (type) => {
+  const types = {
+    0: "Cash",
+    1: "Card",
+    //  2: 'Credit'
+  };
+  return types[type] || "Cash";
+};
+
+// Get current price based on customer type
+const getCurrentPrice = (product) => {
+  return form.customer_type === "wholesale"
+    ? product.wholesale_price
+    : product.retail_price;
+};
+
+// Add product by barcode
+const addByBarcode = () => {
+  if (!barcodeInput.value.trim()) return;
+
+  const product = props.products.find((p) => p.barcode === barcodeInput.value.trim());
+
+  if (product) {
+    const existingIndex = form.items.findIndex((item) => item.product_id === product.id);
+    const price = getCurrentPrice(product);
+
+    if (existingIndex !== -1) {
+      form.items[existingIndex].quantity += 1;
+    } else {
+      form.items.push({
+        product_id: product.id,
+        product_name: product.name,
+        price: parseFloat(price),
+        market_price: parseFloat(product.market_price) || 0,
+        quantity: 1,
+        sale_unit: product.salesUnit ? product.salesUnit.name : 'Not found',
+        discount: product.discount
+          ? {
+              name: product.discount.name,
+              value: product.discount.value,
+              type: product.discount.type,
+            }
+          : null,
+      });
+    }
+
+    barcodeInput.value = "";
+    barcodeField.value?.focus();
+  } else {
+    alert("Product not found with barcode: " + barcodeInput.value);
+    barcodeInput.value = "";
+    barcodeField.value?.focus();
+  }
+};
+
+// Add product to cart
+const addToCart = (product) => {
+  // Check if product is already in cart
+  const existingIndex = form.items.findIndex((item) => item.product_id === product.id);
+
+  if (existingIndex !== -1) {
+    // Product already in cart - increase its quantity
+    form.items[existingIndex].quantity += productQuantities.value[product.id] || 1;
+  } else {
+    // Product not in cart - add it
+    const price = getCurrentPrice(product);
+
+    form.items.push({
+      product_id: product.id,
+      product_name: product.name,
+      price: parseFloat(price),
+      market_price: parseFloat(product.market_price) || 0,
+      quantity: productQuantities.value[product.id] || 1,
+      sale_unit: product.salesUnit ? product.salesUnit.name : 'Not found',
+      discount: product.discount
+        ? {
+            name: product.discount.name,
+            value: product.discount.value,
+            type: product.discount.type,
+          }
+        : null,
+      discountApplied: false,
+    });
+
+    // Reset quantity input after adding
+    productQuantities.value[product.id] = 1;
+  }
+};
+
+const applyDiscount = (index) => {
+  const item = form.items[index];
+
+  if (item.discountApplied) return;
+
+  item.price = item.price - 20; // Rs.100 → Rs.80
+  item.discountApplied = true;
+};
+
+
+
+// Remove item from cart
+const removeItem = (index) => {
+  form.items.splice(index, 1);
+  barcodeField.value?.focus();
+};
+
+// Apply discount to cart item
+const applyItemDiscount = (index) => {
+  const item = form.items[index];
+  if (item.discount && !item.discountApplied) {
+    // Store original price
+    item.originalPrice = item.price;
+
+    // Calculate discounted price
+    if (item.discount.type === 0) {
+      // Percentage discount
+      item.price = item.originalPrice - item.originalPrice * (item.discount.value / 100);
+    } else {
+      // Fixed amount discount
+      item.price = Math.max(0, item.originalPrice - item.discount.value);
+    }
+
+    item.discountApplied = true;
+  }
+};
+
+const removeItemDiscount = (index) => {
+  const item = form.items[index];
+  if (!item.discountApplied) return;
+
+  item.price =
+    item.price_type === 'wholesale'
+      ? item.wholesale_price
+      : item.originalPrice;
+
+  item.discountApplied = false;
+};
+
+
+// Update quantity in cart
+const updateQuantity = (index, newQty) => {
+  const quantity = Math.round((parseFloat(newQty) || 0) * 100) / 100;
+  if (quantity > 0) {
+    form.items[index].quantity = quantity;
+  }
+};
+
+// Allow the input to be temporarily empty while typing; do not remove the cart row.
+const updateQuantityInput = (index, value) => {
+  if (String(value).trim() === "") return;
+
+  const quantity = parseFloat(value);
+  if (Number.isFinite(quantity) && quantity > 0) {
+    updateQuantity(index, quantity);
+  }
+};
+
+// Update price in cart (manual override)
+const updatePrice = (index, newPrice) => {
+  const price = Math.max(0, parseFloat(newPrice) || 0);
+  form.items[index].price = price;
+  form.items[index].discountApplied = false;
+};
+
+// Clear cart
+const clearCart = () => {
+  if (confirm("Are you sure you want to clear the cart?")) {
+    form.items = [];
+    form.discount = 0;
+    form.payments = [];
+    form.quotation_id = null; // Reset quotation reference
+    barcodeField.value?.focus();
+  }
+};
+
+// Held bills: park the current cart so a new bill can be started, and
+// resume/discard parked bills later. Persisted to localStorage so they
+// survive a page refresh.
+const HELD_BILLS_STORAGE_KEY = "pos_held_bills";
+const heldBills = ref([]);
+
+const saveHeldBillsToStorage = () => {
+  localStorage.setItem(HELD_BILLS_STORAGE_KEY, JSON.stringify(heldBills.value));
+};
+
+const loadHeldBillsFromStorage = () => {
+  try {
+    const stored = localStorage.getItem(HELD_BILLS_STORAGE_KEY);
+    heldBills.value = stored ? JSON.parse(stored) : [];
+  } catch (e) {
+    heldBills.value = [];
+  }
+};
+
+const formatHeldTime = (isoString) => {
+  const date = new Date(isoString);
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+};
+
+const holdBill = () => {
+  if (form.items.length === 0) return;
+
+  heldBills.value.push({
+    id: Date.now(),
+    held_at: new Date().toISOString(),
+    customer_id: form.customer_id,
+    customer_name: getCustomerName(form.customer_id) || "Walk-in",
+    customer_type: form.customer_type,
+    discount: form.discount,
+    items: JSON.parse(JSON.stringify(form.items)),
+    total: form.items.reduce((sum, item) => sum + item.price * item.quantity, 0),
+  });
+  saveHeldBillsToStorage();
+
+  // Reset the workspace so a new bill can be started
+  form.items = [];
+  form.customer_id = "";
+  form.customer_type = "retail";
+  form.discount = 0;
+  form.payments = [];
+  form.paid_amount = 0;
+  form.quotation_id = null;
+
+  barcodeField.value?.focus();
+};
+
+const resumeHeldBill = (bill) => {
+  if (
+    form.items.length > 0 &&
+    !confirm("The current cart has items. Resuming this held bill will replace them. Continue?")
+  ) {
+    return;
+  }
+
+  form.items = JSON.parse(JSON.stringify(bill.items));
+  form.customer_id = bill.customer_id;
+  form.customer_type = bill.customer_type;
+  form.discount = bill.discount;
+
+  heldBills.value = heldBills.value.filter((b) => b.id !== bill.id);
+  saveHeldBillsToStorage();
+
+  showHeldBillsModal.value = false;
+};
+
+const deleteHeldBill = (bill) => {
+  if (!confirm("Discard this held bill? This cannot be undone.")) return;
+  heldBills.value = heldBills.value.filter((b) => b.id !== bill.id);
+  saveHeldBillsToStorage();
+};
+
+// Add payment
+const addPayment = async () => {
+  const parsedAmount = parseFloat(paymentAmount.value);
+
+  if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+    alert("Please enter a valid amount");
+    return;
+  }
+
+  const remaining = netAmount.value - totalPaid.value;
+  // Allow overpayment only for cash
+  if (paymentMethod.value !== 0 && parsedAmount > remaining) {
+    alert(`Amount cannot exceed remaining balance: Rs. ${(remaining||0).toFixed(2)}`);
+    return;
+  }
+
+  form.payments.push({
+    payment_type: paymentMethod.value,
+    amount: parsedAmount,
+  });
+
+  await logActivity("create", "sales", {
+    action: "add_payment",
+    payment_type: getPaymentTypeText(paymentMethod.value),
+    amount: parsedAmount,
+  });
+
+  paymentAmount.value = "";
+  paymentMethod.value = 0;
+
+  // Auto-close modal if fully paid or overpaid (for cash)
+  if (balance.value <= 0) {
+    showPaymentModal.value = false;
+  }
+};
+
+// Remove payment
+const removePayment = (index) => {
+  form.payments.splice(index, 1);
+};
+
+// Open payment modal
+const openPaymentModal = () => {
+  if (requiresOpeningBalance.value) {
+    alert("Please enter opening balance before adding payment.");
+    return;
+  }
+
+  if (form.items.length === 0) {
+    alert("Please add items to cart");
+    return;
+  }
+  showPaymentModal.value = true;
+  paymentMethod.value = 0;
+  paymentAmount.value = balance.value > 0 ? balance.value.toFixed(2) : "";
+  nextTick(() => {
+    cashPaymentButton.value?.focus();
+  });
+};
+
+const selectPaymentMethod = (method) => {
+  paymentMethod.value = method;
+};
+
+const normalizeAmountInput = (value) => {
+  let sanitized = String(value ?? "").replace(/[^\d.]/g, "");
+  const firstDot = sanitized.indexOf(".");
+  if (firstDot !== -1) {
+    sanitized =
+      sanitized.slice(0, firstDot + 1) + sanitized.slice(firstDot + 1).replace(/\./g, "");
+  }
+  return sanitized;
+};
+
+const onPaymentAmountInput = (event) => {
+  paymentAmount.value = normalizeAmountInput(event.target.value);
+};
+
+const finalizePaymentAmount = () => {
+  const numericValue = parseFloat(paymentAmount.value);
+
+  if (!Number.isFinite(numericValue)) {
+    paymentAmount.value = "";
+    return;
+  }
+
+  if (numericValue < 100) {
+    paymentAmount.value = "100";
+    return;
+  }
+
+  if (numericValue > 5000) {
+    paymentAmount.value = "5000";
+    return;
+  }
+
+  paymentAmount.value = String(numericValue);
+};
+
+const addQuickAmount = (value) => {
+  paymentAmount.value = String(value);
+};
+
+const handleKeypadPress = (key) => {
+  if (key === "C") {
+    paymentAmount.value = "";
+    return;
+  }
+
+  if (key === "←") {
+    paymentAmount.value = paymentAmount.value.slice(0, -1);
+    return;
+  }
+
+  paymentAmount.value = `${paymentAmount.value}${key}`;
+};
+
+// Product modal methods
+const openProductModal = () => {
+  showProductModal.value = true;
+  filterProducts();
+  // Initialize all product quantities to 1
+  props.products.forEach((product) => {
+    if (!productQuantities.value[product.id]) {
+      productQuantities.value[product.id] = 1;
+    }
+  });
+};
+
+const closeProductModal = () => {
+  showProductModal.value = false;
+  barcodeField.value?.focus();
+};
+
+const filterProducts = () => {
+  let filtered = [...props.products];
+
+  // Search filter
+  if (productFilters.value.search.trim()) {
+    const searchTerm = productFilters.value.search.toLowerCase().trim();
+    filtered = filtered.filter((p) =>
+      p.name.toLowerCase().includes(searchTerm) ||
+      (p.product_search_code && p.product_search_code.toLowerCase().includes(searchTerm))
+    );
+  }
+
+  if (productFilters.value.brand_id) {
+    filtered = filtered.filter((p) => p.brand_id == productFilters.value.brand_id);
+  }
+  if (productFilters.value.category_id) {
+    filtered = filtered.filter((p) => p.category_id == productFilters.value.category_id);
+  }
+  if (productFilters.value.type_id) {
+    filtered = filtered.filter((p) => p.type_id == productFilters.value.type_id);
+  }
+  if (productFilters.value.discount_id) {
+    filtered = filtered.filter((p) => p.discount_id == productFilters.value.discount_id);
+  }
+
+  // Stock filter: 'low' => low stock (but not out), 'out' => out of stock
+  if (productFilters.value.stock_filter === "low") {
+    filtered = filtered.filter((p) => isLowStock(p));
+  }
+
+  if (productFilters.value.stock_filter === "out") {
+    filtered = filtered.filter((p) => isOutOfStock(p));
+  }
+
+  filteredProducts.value = filtered;
+  currentPage.value = 1;
+};
+
+const clearFilters = () => {
+  productFilters.value = {
+    search: "",
+    brand_id: "",
+    category_id: "",
+    type_id: "",
+    discount_id: "",
+    stock_filter: "",
+  };
+  filterProducts();
+};
+
+const openCustomerModal = () => {
+  showQuickAddCustomer.value = true;
+};
+
+const selectProductFromModal = async (product) => {
+  // Get quantity from input or default to 1
+  const quantity = productQuantities.value[product.id] || 1;
+
+  if (quantity <= 0 || quantity > product.shop_quantity_in_sales_unit) {
+    alert(`Please enter a valid quantity (0.01-${product.shop_quantity_in_sales_unit})`);
+    return;
+  }
+
+  // Add product directly to cart
+  const existingIndex = form.items.findIndex((item) => item.product_id === product.id);
+  const price = getCurrentPrice(product);
+
+  if (existingIndex !== -1) {
+    form.items[existingIndex].quantity += quantity;
+  } else {
+    form.items.push({
+      product_id: product.id,
+      product_name: product.name,
+      price: parseFloat(price),
+      quantity: quantity,
+      discount: product.discount
+        ? {
+            name: product.discount.name,
+            value: product.discount.value,
+            type: product.discount.type,
+          }
+        : null,
+    });
+  }
+
+  await logActivity("create", "sales", {
+    action: "add_to_cart_from_modal",
+    product_id: product.id,
+    product_name: product.name,
+    quantity: quantity,
+  });
+
+  // Reset quantity input
+  productQuantities.value[product.id] = 1;
+};
+
+// Check if product is in cart
+const isProductInCart = (productId) => {
+  return form.items.some((item) => item.product_id === productId);
+};
+
+// Get product quantity in cart
+const getProductCartQuantity = (productId) => {
+  const item = form.items.find((item) => item.product_id === productId);
+  return item ? item.quantity : 0;
+};
+
+// Check if product has low stock
+const isLowStock = (product) => {
+  const margin = product.shop_low_stock_margin || 0;
+  return product.shop_quantity_in_sales_unit > 0 && product.shop_quantity_in_sales_unit <= margin;
+};
+
+const isOutOfStock = (product) => {
+  return product.shop_quantity_in_sales_unit <= 0;
+};
+
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++;
+  }
+};
+
+const prevPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--;
+  }
+};
+
+const updateCartPrices = () => {
+  form.items.forEach((item) => {
+    const product = props.products.find((p) => p.id === item.product_id);
+    if (product) {
+      item.price = parseFloat(getCurrentPrice(product));
+    }
+  });
+};
+
+// Submit sale with multiple payments
+const submitSale = () => {
+  if (requiresOpeningBalance.value) {
+    alert("Please enter opening balance before creating invoices.");
+    return;
+  }
+
+  if (form.items.length === 0) {
+    alert("Please add items to cart");
+    return;
+  }
+
+  if (form.payments.length === 0) {
+    alert("Please click the Payment button to proceed.");
+    return;
+  }
+
+  if (balance.value > 0) {
+    if (!confirm(`Unpaid balance: Rs. ${(balance.value||0).toFixed(2)}. Continue?`)) {
+      return;
+    }
+  }
+
+  // Store sale data before submitting
+  completedInvoice.value = form.invoice_no;
+  completedSaleDate.value = form.sale_date;
+  completedCustomer.value =
+    props.customers.find((c) => c.id === form.customer_id)?.name || "";
+  completedPaymentType.value =
+    form.payments.length > 0 ? form.payments[0].payment_type : 0;
+  completedItems.value = [...form.items];
+  completedTotal.value = (originalTotal.value||0).toFixed(2);
+  completedProductDiscount.value = (totalProductDiscount.value||0).toFixed(2);
+  completedDiscount.value = (Number(form.discount) || 0).toFixed(2);
+  completedNetAmount.value = (netAmount.value||0).toFixed(2);
+  completedPaid.value = (totalPaid.value||0).toFixed(2);
+  completedBalance.value = (balance.value||0).toFixed(2);
+
+  form.post(route("sales.store"), {
+    preserveScroll: true,
+    onSuccess: async () => {
+      await logActivity("create", "sales", {
+        action: "complete_sale",
+        invoice_no: form.invoice_no,
+        customer_id: form.customer_id,
+        items_count: form.items.length,
+        total_amount: totalAmount.value,
+        payments_count: form.payments.length,
+        net_amount: netAmount.value,
+      });
+
+      // Auto-print only when bill setting enables it
+      const shouldAutoPrint = !!(
+        bill &&
+        (bill.auto_print === 1 || bill.auto_print === "1" || bill.auto_print === true)
+      );
+
+      if (shouldAutoPrint) {
+        try {
+          printReceipt();
+        } catch (e) {
+          console.error("Auto print failed:", e);
+        }
+
+        // Small delay to allow print dialog to open before navigating away
+        setTimeout(() => {
+          router.visit(route("sales.index"));
+        }, 800);
+      } else {
+        // Show confirmation modal when auto-print is disabled
+        showSuccessModal.value = true;
+      }
+
+      showPaymentModal.value = false;
+    },
+    onError: (errors) => {
+      console.error("Sale error:", errors);
+      let errorMsg = "Sale failed. Please try again.";
+      if (errors.cash_drawer) errorMsg = errors.cash_drawer[0];
+      else if (errors.invoice_no) errorMsg = errors.invoice_no[0];
+      else if (errors.items) errorMsg = errors.items[0];
+      alert(errorMsg);
+    },
+  });
+};
+
+// Print receipt
+const printReceipt = () => {
+  const bill = props.billSetting || {};
+  const rawSize = (bill.print_size || "80mm").toString();
+  const allowedSizes = ["58mm", "80mm", "112mm", "210mm"];
+  const width = allowedSizes.includes(rawSize) ? rawSize : "80mm";
+  const popupWidth = Math.max((window.screen?.availWidth || window.innerWidth || 1200) - 40, 900);
+  const popupHeight = Math.max((window.screen?.availHeight || window.innerHeight || 900) - 40, 700);
+  const popupLeft = Math.max(Math.floor(((window.screen?.availWidth || popupWidth) - popupWidth) / 2), 0);
+  const popupTop = Math.max(Math.floor(((window.screen?.availHeight || popupHeight) - popupHeight) / 2), 0);
+
+  const printWindow = window.open(
+    "",
+    "_blank",
+    `width=${popupWidth},height=${popupHeight},left=${popupLeft},top=${popupTop},resizable=yes,scrollbars=yes`
+  );
+
+  if (!printWindow) {
+    alert("Please allow pop-ups to print receipt");
+    return;
+  }
+
+  const receiptContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Receipt - ${completedInvoice.value}</title>
+            <style>
+                @page {
+                    size: ${width} auto;
+                    margin: 0;
+                }
+                @media print {
+                    body {
+                        margin: 0;
+                        padding: 0;
+                    }
+                }
+                * {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }
+                body {
+                    font-family: 'Poppins', Poppins, monospace;
+                  font-size: 12px;
+                    width: ${width};
+                    margin: 0;
+                    padding: 1mm 1mm;
+                    background: white;
+                    color: #000;
+                    line-height: 1.4;
+                    font-weight: 700;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                }
+                .receipt-container {
+                  width: 100%;
+                  max-width: ${width};
+                }
+                .header {
+                    text-align: center;
+                    margin-bottom: 8px;
+                    padding-bottom: 8px;
+                    border-bottom: 2px dashed #000;
+                }
+                .header h1 {
+                  font-size: 16px;
+                    font-weight: 900;
+                    margin-bottom: 4px;
+                    text-transform: uppercase;
+                    color: #000;
+                }
+                .header p {
+                  font-size: 11px;
+                    margin: 1px 0;
+                    line-height: 1.3;
+                    font-weight: 600;
+                    color: #000;
+                }
+                .info {
+                    margin: 8px 0;
+                  font-size: 11px;
+                    font-weight: 600;
+                    color: #000;
+                }
+                .info-row {
+                    display: flex;
+                    justify-content: space-between;
+                    margin: 2px 0;
+                    line-height: 1.3;
+                    color: #000;
+                }
+
+                .items-table {
+                    width: 100%;
+                    margin: 8px 0;
+                    font-size: 13px;
+                    border-collapse: collapse;
+                    font-weight: 600;
+                    color: #000;
+                }
+                .items-table th {
+                    text-align: left;
+                    border-bottom: 2px solid #000;
+                    padding: 3px 2px;
+                    font-weight: 800;
+                    font-size: 11px;
+                    color: #000;
+                }
+                .items-table th.item-price {
+                  text-align: center;
+                }
+                .items-table th.item-total {
+                  text-align: right;
+                }
+                .items-table td {
+                    padding: 2px 2px;
+                    vertical-align: top;
+                    font-weight: 600;
+                    color: #000;
+                }
+                .item-name-row {
+                    page-break-inside: avoid;
+                    break-inside: avoid;
+                }
+                .item-name-row td {
+                    border-bottom: none;
+                    padding-bottom: 0;
+                    font-weight: 800;
+                    font-size: 13px;
+                }
+                .item-data-row {
+                    page-break-inside: avoid;
+                    break-inside: avoid;
+                }
+                .item-data-row td {
+                    border-bottom: 1px dotted #000;
+                    padding-top: 0;
+                    font-size: 14px;
+                }
+                .item-name {
+                    width: 22%;
+                    word-wrap: break-word;
+                }
+                .item-qty {
+                    width: 10%;
+                    text-align: center;
+                }
+                .item-price {
+                    width: 30%;
+                    text-align: center;
+                }
+                .item-total {
+                    width: 21%;
+                    text-align: right;
+                }
+                .totals {
+                    margin-top: 8px;
+                  font-size: 11px;
+                    font-weight: 600;
+                    color: #000;
+                    page-break-inside: avoid;
+                    break-inside: avoid;
+                }
+                .total-row {
+                    display: flex;
+                    justify-content: space-between;
+                    margin: 3px 0;
+                    line-height: 1.4;
+                    font-weight: 700;
+                    color: #000;
+                }
+                .total-row.grand {
+                  font-size: 14px;
+                    font-weight: 900;
+                    border-top: 2px solid #000;
+                    border-bottom: 2px solid #000;
+                    padding: 6px 0;
+                    margin: 8px 0;
+                    color: #000;
+                }
+                .footer {
+                    text-align: center;
+                    margin-top: 12px;
+                    padding-top: 8px;
+                    border-top: 2px dashed #000;
+                  font-size: 11px;
+                    font-weight: 600;
+                    color: #000;
+                }
+                .footer p {
+                    margin: 2px 0;
+                    line-height: 1.3;
+                    color: #000;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="receipt-container">
+                <div class="header">
+                    <div style="margin-bottom:6px;"><img src="/images/logo.png" alt="logo" style="max-height:40px; max-width:100%; object-fit:contain;"/></div>
+                    <h1>${bill.company_name || "SALES RECEIPT"}</h1>
+                    ${bill.address ? `<p>${bill.address}</p>` : ""}
+                    ${
+                      bill.mobile_1 || bill.mobile_2
+                        ? `<p>Tel: ${[bill.mobile_1, bill.mobile_2]
+                            .filter(Boolean)
+                            .join(" / ")}</p>`
+                        : ""
+                    }
+                    ${bill.email ? `<p>${bill.email}</p>` : ""}
+                    ${bill.website_url ? `<p>${bill.website_url}</p>` : ""}
+                </div>
+
+                <div class="info">
+                    <div class="info-row">
+                        <span><strong>බිල් අංකය:</strong></span>
+                        <span>${completedInvoice.value}</span>
+                    </div>
+                    <div class="info-row">
+                        <span><strong>දිනය:</strong></span>
+                        <span>${completedSaleDate.value}</span>
+                    </div>
+                    <div class="info-row">
+                        <span><strong>ගනුදෙනුකරු:</strong></span>
+                        <span>${completedCustomer.value}</span>
+                    </div>
+                    <div class="info-row">
+                        <span><strong>ගෙවීමේ ක්‍රමය:</strong></span>
+                        <span>${getPaymentTypeText(completedPaymentType.value)}</span>
+                    </div>
+                </div>
+
+
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th class="item-name">භාණ්ඩය</th>
+                            <th class="item-price"> මිල​</th>
+                             
+                            <th class="item-price">ප්‍රමාණය​​</th>
+                            <th class="item-total">එකතුව</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${completedItems.value
+                          .map(
+                            (item) => `
+                            <tr class="item-name-row">
+                                <td colspan="5">${item.product_name}</td>
+                            </tr>
+                            <tr class="item-data-row">
+                                <td></td>
+                                <td class="item-price">${(item.market_price||0).toFixed(2)}</td>
+                               
+                                <td class="item-price">${item.quantity}</td>
+                                <td class="item-total">${(
+                                  (item.price||0) * item.quantity
+                                ).toFixed(2)}</td>
+                            </tr>
+                        `
+                          )
+                          .join("")}
+                    </tbody>
+                </table>
+
+
+               <div class="totals">
+    <div class="total-row">
+        <span>එකතුව:</span>
+        <span>${page.props.currency || "රු"} ${completedTotal.value}</span>
+    </div>
+
+    ${
+      parseFloat(completedProductDiscount.value) > 0
+        ? `
+    <div class="total-row" style="color: green;">
+        <span>භාණ්ඩ වට්ටම්:</span>
+        <span>- ${page.props.currency || "රු"} ${completedProductDiscount.value}</span>
+    </div>
+    `
+        : ""
+    }
+
+    ${
+      parseFloat(completedDiscount.value) > 0
+        ? `
+    <div class="total-row">
+        <span>අමතර වට්ටම්:</span>
+        <span>- ${page.props.currency || "රු"} ${completedDiscount.value}</span>
+    </div>
+    `
+        : ""
+    }
+
+    <div class="total-row grand">
+        <span>මුළු මුදල​ :</span>
+        <span>${page.props.currency || "රු"} ${completedNetAmount.value}</span>
+    </div>
+
+    <div class="total-row">
+        <span>ගෙවූ මුදල:</span>
+        <span>${page.props.currency || "රු"} ${completedPaid.value}</span>
+    </div>
+
+    <div class="total-row" style="font-weight: bold;">
+        <span>
+            ${
+              parseFloat(completedBalance.value) > 0
+                ? "ඉතිරි ගෙවිය යුතු මුදල:"
+                : "ඉතිරි මුදල:"
+            }
+        </span>
+
+        <span>${page.props.currency || "රු"} ${Math.abs(
+          parseFloat(completedBalance.value)
+        ).toFixed(2)}</span>
+    </div>
+
+
+    <div class="total-row">
+        <span>භාණ්ඩ ප්‍රමාණය:</span>
+        <span>${completedItems.value.reduce((sum, item) => sum + item.quantity, 0)}</span>
+    </div>
+</div>
+
+                <div class="footer">
+
+                    <p>
+                        ${bill.footer_description || "Thank you for your business - POS System By Online මුදලාලි!"}
+                        </p>
+
+                </div>
+            </div>
+
+            <script type="text/javascript">
+                let printExecuted = false;
+
+                function fitPageToContent() {
+                    var heightPx = Math.max(
+                        document.body.scrollHeight,
+                        document.body.offsetHeight,
+                        document.documentElement.scrollHeight,
+                        document.documentElement.offsetHeight
+                    );
+                    var heightMm = Math.ceil((heightPx / 96 * 25.4) * 1.08) + 20;
+                    var styleEl = document.createElement('style');
+                    styleEl.innerHTML = '@page { size: ${width} ' + heightMm + 'mm; margin: 0; }';
+                    document.head.appendChild(styleEl);
+                }
+
+                function doPrint() {
+                    if (printExecuted) return;
+                    printExecuted = true;
+                    fitPageToContent();
+                    setTimeout(function() {
+                        window.print();
+                    }, 50);
+                }
+
+                window.onload = function() {
+                    setTimeout(function() {
+                        if (document.fonts && document.fonts.ready) {
+                            document.fonts.ready.then(doPrint).catch(doPrint);
+                        } else {
+                            doPrint();
+                        }
+                    }, 300);
+                }
+
+                window.onafterprint = function() {
+                    setTimeout(function() {
+                        window.close();
+                    }, 200);
+                }
+
+                setTimeout(function() {
+                    if (!window.closed) {
+                        window.close();
+                    }
+                }, 5000);
+            <\/script>
+        </body>
+        </html>
+    `;
+
+  printWindow.document.write(receiptContent);
+  printWindow.document.close();
+};
+
+// Close modal and reload
+const closeModal = () => {
+  showSuccessModal.value = false;
+  router.visit(route("sales.index"));
+};
+
+// Print from success modal then close and redirect
+const printAndClose = () => {
+  try {
+    printReceipt();
+  } catch (e) {
+    console.error("Print failed:", e);
+  }
+
+  // Close modal and redirect after a short delay to allow print dialog
+  showSuccessModal.value = false;
+  setTimeout(() => {
+    router.visit(route("sales.index"));
+  }, 800);
+};
+
+// Keyboard shortcuts
+const handleKeyDown = (event) => {
+  // Check if F8 is pressed using multiple methods
+  const isF8 = event.key === 'F8' ||
+               event.keyCode === 119 ||
+               event.code === 'F8';
+
+  // Check if F9 is pressed using multiple methods
+  const isF9 = event.key === 'F9' ||
+               event.keyCode === 120 ||
+               event.code === 'F9';
+
+  // Check if F10 is pressed using multiple methods
+  const isF10 = event.key === 'F10' ||
+                event.keyCode === 121 ||
+                event.code === 'F10';
+
+  // Check if ESC is pressed
+  const isESC = event.key === 'Escape' ||
+                event.keyCode === 27 ||
+                event.code === 'Escape';
+
+  // Check if Delete is pressed
+  const isDelete = event.key === 'Delete' ||
+                   event.keyCode === 46 ||
+                   event.code === 'Delete';
+
+  // Check if F1 is pressed
+  const isF1 = event.key === 'F1' ||
+               event.keyCode === 112 ||
+               event.code === 'F1';
+
+  // Check arrow keys: Up/Down navigate categories, Left/Right navigate products
+  const isArrowUp = event.key === 'ArrowUp' || event.keyCode === 38;
+  const isArrowDown = event.key === 'ArrowDown' || event.keyCode === 40;
+  const isArrowLeft = event.key === 'ArrowLeft' || event.keyCode === 37;
+  const isArrowRight = event.key === 'ArrowRight' || event.keyCode === 39;
+
+  // Check if Enter is pressed (used to add the keyboard-selected product to the cart)
+  const isEnter = event.key === 'Enter' || event.keyCode === 13;
+
+  if (isF1) {
+    // Prevent the browser's default F1 (help) behavior
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    if (productSearchField.value) {
+      productSearchField.value.focus();
+      productSearchField.value.select();
+    }
+
+    return;
+  }
+
+  if (isF8) {
+    // Completely prevent default and stop propagation
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    // Don't trigger if user is actively typing in form fields (except barcode field)
+    const activeElement = document.activeElement;
+    const isInputField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement?.tagName);
+    const isBarcodeField = activeElement === barcodeField.value;
+
+    if ((!isInputField || isBarcodeField) && form.items.length > 0) {
+      clearCart();
+    }
+
+    return false;
+  }
+
+  if (isF9) {
+    // Completely prevent default and stop propagation
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    // Don't trigger if user is actively typing in form fields (except barcode field)
+    const activeElement = document.activeElement;
+    const isInputField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement?.tagName);
+    const isBarcodeField = activeElement === barcodeField.value;
+
+    // Check if sale can be completed (has items and payments, not already processing)
+    if ((!isInputField || isBarcodeField) && form.items.length > 0 && form.payments.length > 0 && !form.processing) {
+      submitSale();
+    }
+
+    return false;
+  }
+
+  if (isF10) {
+    // Completely prevent default and stop propagation
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    // Don't trigger if user is actively typing in form fields (except barcode field)
+    const activeElement = document.activeElement;
+    const isInputField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement?.tagName);
+    const isBarcodeField = activeElement === barcodeField.value;
+
+    if (!isInputField || isBarcodeField) {
+      openPaymentModal();
+    }
+
+    return false;
+  }
+
+  if (isESC) {
+    // Prevent default ESC behavior
+    event.preventDefault();
+    event.stopPropagation();
+
+    // Focus the barcode field
+    if (barcodeField.value) {
+      barcodeField.value.focus();
+      barcodeField.value.select();
+    }
+    return false;
+  }
+
+  if (isDelete) {
+    // Don't trigger if user is actively typing in form fields (except barcode field)
+    const activeElement = document.activeElement;
+    const isInputField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement?.tagName);
+    const isBarcodeField = activeElement === barcodeField.value;
+
+    if ((!isInputField || isBarcodeField) && form.items.length > 0) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      // Remove the last item in the cart, one press at a time
+      removeItem(form.items.length - 1);
+    }
+
+    return false;
+  }
+
+  if (isArrowUp || isArrowDown) {
+    // Don't trigger if user is actively typing in form fields (except barcode field)
+    const activeElement = document.activeElement;
+    const isInputField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement?.tagName);
+    const isBarcodeField = activeElement === barcodeField.value;
+
+    if (!isInputField || isBarcodeField) {
+      event.preventDefault();
+
+      // Select the previous (Up) or next (Down) category, including "All Products"
+      const navList = categoryNavList.value;
+      const currentIndex = navList.findIndex(
+        (c) => String(c.id) === String(productFilters.value.category_id)
+      );
+      const startIndex = currentIndex === -1 ? 0 : currentIndex;
+      const newIndex = isArrowUp
+        ? Math.max(0, startIndex - 1)
+        : Math.min(navList.length - 1, startIndex + 1);
+
+      productFilters.value.category_id = navList[newIndex].id;
+      filterProducts();
+    }
+
+    return false;
+  }
+
+  if (isArrowLeft || isArrowRight) {
+    // Don't trigger if user is actively typing in form fields (except barcode field)
+    const activeElement = document.activeElement;
+    const isInputField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement?.tagName);
+    const isBarcodeField = activeElement === barcodeField.value;
+    const isProductSearchField = activeElement === productSearchField.value;
+
+    if ((!isInputField || isBarcodeField || isProductSearchField) && infiniteScrollProducts.value.length > 0) {
+      event.preventDefault();
+
+      // Move the highlighted product card left/right through the visible grid
+      if (selectedProductIndex.value === -1) {
+        selectedProductIndex.value = 0;
+      } else if (isArrowLeft) {
+        selectedProductIndex.value = Math.max(0, selectedProductIndex.value - 1);
+      } else {
+        selectedProductIndex.value = Math.min(
+          infiniteScrollProducts.value.length - 1,
+          selectedProductIndex.value + 1
+        );
+      }
+    }
+
+    return false;
+  }
+
+  if (isEnter) {
+    if (showSuccessModal.value) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      printAndClose();
+      return false;
+    }
+
+    if (showPaymentModal.value) {
+      return false;
+    }
+
+    // Enter should add the highlighted card, while a barcode value still takes
+    // priority and is handled by the barcode input's own @keyup.enter handler.
+    const activeElement = document.activeElement;
+    const isInputField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement?.tagName);
+    const isBarcodeField = activeElement === barcodeField.value;
+    const isEmptyBarcodeField = isBarcodeField && !barcodeInput.value.trim();
+    const isProductSearchField = activeElement === productSearchField.value;
+
+    if (
+      selectedProductIndex.value !== -1 &&
+      (!isInputField || isEmptyBarcodeField || isProductSearchField) &&
+      !(isBarcodeField && barcodeInput.value.trim())
+    ) {
+      const product = infiniteScrollProducts.value[selectedProductIndex.value];
+      if (product) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        addToCart(product);
+      }
+    }
+  }
+};
+
+
+// Focus barcode input on mount
+onMounted(() => {
+  barcodeField.value?.focus();
+  window.addEventListener("keydown", handleKeyDown, true);
+  loadHeldBillsFromStorage();
+
+  // Populate the always-visible product grid using the existing filter logic
+  filterProducts();
+  fillProductGridIfNeeded();
+  props.products.forEach((product) => {
+    if (!productQuantities.value[product.id]) {
+      productQuantities.value[product.id] = 1;
+    }
+  });
+
+  // Do not set a default customer; keep it empty to show '-- Select Customer --'
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown, true);
+});
+</script>
+
+<style scoped>
+select.no-arrow {
+  background-image: none !important;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+select.no-arrow::-ms-expand {
+  display: none;
+}
+
+/* ===== Modern POS Workspace Layout ===== */
+/* The whole page is a fixed h-screen flex column (see template), so this
+   workspace fills the remaining height exactly and never causes page scroll.
+   Each column/section scrolls internally instead. */
+.pos-main-grid {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) 520px;
+  grid-template-rows: minmax(340px, 420px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: stretch;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.category-sidebar-card {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.product-browse-card {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  min-height: 0;
+}
+
+/* Cart Items sits above the Order Summary in the right-hand column */
+.cart-card {
+  grid-column: 3;
+  grid-row: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.order-summary-card {
+  grid-column: 3;
+  grid-row: 2;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.product-grid-scroll {
+  min-height: 0;
+}
+
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 0.6rem;
+}
+
+/* Category sidebar buttons */
+.category-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+.category-btn-inactive {
+  background-color: #fff;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+.category-btn-inactive:hover {
+  background-color: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+.category-btn-active {
+  background-color: #2563eb;
+  color: #fff;
+  border: 1px solid #2563eb;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+}
+
+/* Product cards */
+.product-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid #f3f4f6;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+.product-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: #d1d5db;
+}
+.product-card:active {
+  transform: scale(0.97);
+}
+.product-card-active {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px #2563eb;
+}
+.product-card-selected {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px #f59e0b;
+}
+
+@media (max-width: 1399px) {
+  .pos-main-grid {
+    grid-template-columns: 180px minmax(0, 1fr) 440px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .pos-main-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto auto;
+    overflow-y: auto;
+  }
+  .category-sidebar-card {
+    grid-column: 1;
+    grid-row: 1;
+    max-height: 220px;
+    min-height: 0;
+  }
+  .category-list {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 0.5rem;
+  }
+  .category-btn {
+    width: auto;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .product-browse-card {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .cart-card {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .order-summary-card {
+    grid-column: 1;
+    grid-row: 4;
+  }
+  .product-grid-scroll {
+    max-height: 50vh;
+  }
+}
+</style>
