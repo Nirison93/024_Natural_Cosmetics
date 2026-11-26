@@ -1271,7 +1271,7 @@
             <img
               :src="'/images/logo.png'"
               alt="logo"
-              style="max-height: 40px; max-width: 100%; object-fit: contain"
+              style="max-height: 80px; max-width: 100%; object-fit: contain"
             />
           </div>
           <h1 class="text-xl font-bold">{{ bill.company_name || "RECEIPT" }}</h1>
@@ -1349,17 +1349,17 @@
             >
           </div>
           <!-- <div class="flex justify-between font-bold mt-2 bg-green-100 text-green-800 rounded px-2 py-1">
-            <span>ඔබ ලැබූ ලාභය:</span>
+            <span>Profit:</span>
             <span>({{ page.props.currency || "Rs." }}) {{ completedItems.reduce((sum, item) => sum + ((item.market_price || 0) - (item.price || 0)) * item.quantity, 0).toFixed(2) }}</span>
           </div> -->
           <div class="flex justify-between mt-1">
-            <span>භාණ්ඩ ප්‍රමාණය:</span>
+            <span>Items:</span>
             <span>{{ completedItems.reduce((sum, item) => sum + item.quantity, 0) }}</span>
           </div>
         </div>
         <hr class="my-4 border-black" />
         <p class="text-center text-xs">
-          {{ bill.footer_description || "Thank you for your business - POS System By Online මුදලාලි!" }}
+          {{ bill.footer_description || "Thank you for your business - POS System" }}
         </p>
       </div>
     </div>
@@ -2542,7 +2542,7 @@ const printReceipt = () => {
         <body>
             <div class="receipt-container">
                 <div class="header">
-                    <div style="margin-bottom:6px;"><img src="/images/logo.png" alt="logo" style="max-height:40px; max-width:100%; object-fit:contain;"/></div>
+                    <div style="margin-bottom:6px;"><img src="/images/logo.png" alt="logo" style="max-height:80px; max-width:100%; object-fit:contain;"/></div>
                     <h1>${bill.company_name || "SALES RECEIPT"}</h1>
                     ${bill.address ? `<p>${bill.address}</p>` : ""}
                     ${
@@ -2558,19 +2558,19 @@ const printReceipt = () => {
 
                 <div class="info">
                     <div class="info-row">
-                        <span><strong>බිල් අංකය:</strong></span>
+                        <span><strong>Invoice:</strong></span>
                         <span>${completedInvoice.value}</span>
                     </div>
                     <div class="info-row">
-                        <span><strong>දිනය:</strong></span>
+                        <span><strong>Date:</strong></span>
                         <span>${completedSaleDate.value}</span>
                     </div>
                     <div class="info-row">
-                        <span><strong>ගනුදෙනුකරු:</strong></span>
+                        <span><strong>Customer:</strong></span>
                         <span>${completedCustomer.value}</span>
                     </div>
                     <div class="info-row">
-                        <span><strong>ගෙවීමේ ක්‍රමය:</strong></span>
+                        <span><strong>Payment Method:</strong></span>
                         <span>${getPaymentTypeText(completedPaymentType.value)}</span>
                     </div>
                 </div>
@@ -2579,11 +2579,11 @@ const printReceipt = () => {
                 <table class="items-table">
                     <thead>
                         <tr>
-                            <th class="item-name">භාණ්ඩය</th>
-                            <th class="item-price"> මිල​</th>
+                            <th class="item-name">Item</th>
+                            <th class="item-price">Price</th>
                              
-                            <th class="item-price">ප්‍රමාණය​​</th>
-                            <th class="item-total">එකතුව</th>
+                            <th class="item-price">Qty</th>
+                            <th class="item-total">Total</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -2611,16 +2611,16 @@ const printReceipt = () => {
 
                <div class="totals">
     <div class="total-row">
-        <span>එකතුව:</span>
-        <span>${page.props.currency || "රු"} ${completedTotal.value}</span>
+        <span>Sub Total:</span>
+        <span>${page.props.currency || "Rs."} ${completedTotal.value}</span>
     </div>
 
     ${
       parseFloat(completedProductDiscount.value) > 0
         ? `
     <div class="total-row" style="color: green;">
-        <span>භාණ්ඩ වට්ටම්:</span>
-        <span>- ${page.props.currency || "රු"} ${completedProductDiscount.value}</span>
+        <span>Product Discount:</span>
+        <span>- ${page.props.currency || "Rs."} ${completedProductDiscount.value}</span>
     </div>
     `
         : ""
@@ -2630,40 +2630,40 @@ const printReceipt = () => {
       parseFloat(completedDiscount.value) > 0
         ? `
     <div class="total-row">
-        <span>අමතර වට්ටම්:</span>
-        <span>- ${page.props.currency || "රු"} ${completedDiscount.value}</span>
+        <span>Additional Discount:</span>
+        <span>- ${page.props.currency || "Rs."} ${completedDiscount.value}</span>
     </div>
     `
         : ""
     }
 
     <div class="total-row grand">
-        <span>මුළු මුදල​ :</span>
-        <span>${page.props.currency || "රු"} ${completedNetAmount.value}</span>
+        <span>Total:</span>
+        <span>${page.props.currency || "Rs."} ${completedNetAmount.value}</span>
     </div>
 
     <div class="total-row">
-        <span>ගෙවූ මුදල:</span>
-        <span>${page.props.currency || "රු"} ${completedPaid.value}</span>
+        <span>Paid:</span>
+        <span>${page.props.currency || "Rs."} ${completedPaid.value}</span>
     </div>
 
     <div class="total-row" style="font-weight: bold;">
         <span>
             ${
               parseFloat(completedBalance.value) > 0
-                ? "ඉතිරි ගෙවිය යුතු මුදල:"
-                : "ඉතිරි මුදල:"
+                ? "Balance Due:"
+                : "Change:"
             }
         </span>
 
-        <span>${page.props.currency || "රු"} ${Math.abs(
+        <span>${page.props.currency || "Rs."} ${Math.abs(
           parseFloat(completedBalance.value)
         ).toFixed(2)}</span>
     </div>
 
 
     <div class="total-row">
-        <span>භාණ්ඩ ප්‍රමාණය:</span>
+        <span>Items:</span>
         <span>${completedItems.value.reduce((sum, item) => sum + item.quantity, 0)}</span>
     </div>
 </div>
@@ -2671,7 +2671,7 @@ const printReceipt = () => {
                 <div class="footer">
 
                     <p>
-                        ${bill.footer_description || "Thank you for your business - POS System By Online මුදලාලි!"}
+                        ${bill.footer_description || "Thank you for your business - POS System"}
                         </p>
 
                 </div>
