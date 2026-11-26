@@ -94,6 +94,8 @@ class ProductController extends Controller
             'purchase_to_transfer_rate',
             'transfer_to_sales_rate',
             'return_product',
+            'batch_tracking_enabled',
+            'expiry_date_required',
             'status',
             'created_at',
             'updated_at'
@@ -105,7 +107,8 @@ class ProductController extends Controller
             'tax',
             'purchaseUnit',
             'salesUnit',
-            'transferUnit'
+            'transferUnit',
+            'batches.supplier'
         ]);
 
         if ($search !== '') {
@@ -226,6 +229,8 @@ class ProductController extends Controller
             'market_price' => 'nullable|numeric|min:0',
 
             'return_product' => 'nullable|boolean',
+            'batch_tracking_enabled' => 'nullable|boolean',
+            'expiry_date_required' => 'nullable|boolean',
 
             'purchase_unit_id' => 'nullable|exists:measurement_units,id',
             'sales_unit_id' => 'nullable|exists:measurement_units,id',
@@ -244,6 +249,9 @@ class ProductController extends Controller
 
         // Return product convert to boolean
         $validated['return_product'] = $request->boolean('return_product');
+        $validated['batch_tracking_enabled'] = $request->boolean('batch_tracking_enabled');
+        $validated['expiry_date_required'] = $request->boolean('expiry_date_required');
+        $this->validateBatchSettings($request, null);
 
         // Auto-generate search code from category's category_code
         $validated['product_search_code'] = $this->generateProductSearchCode($validated['category_id'] ?? null);
@@ -308,6 +316,8 @@ class ProductController extends Controller
             'retail_price' => 'nullable|numeric|min:0',
             'market_price' => 'nullable|numeric|min:0',
             'return_product' => 'nullable|boolean',
+            'batch_tracking_enabled' => 'nullable|boolean',
+            'expiry_date_required' => 'nullable|boolean',
             'purchase_unit_id' => 'nullable|exists:measurement_units,id',
             'sales_unit_id' => 'nullable|exists:measurement_units,id',
             'transfer_unit_id' => 'nullable|exists:measurement_units,id',
@@ -323,6 +333,13 @@ class ProductController extends Controller
 
         // Convert return_product to boolean
         $validated['return_product'] = $request->boolean('return_product');
+        $this->validateBatchSettings($request, $product);
+        if ($request->has('batch_tracking_enabled')) {
+            $validated['batch_tracking_enabled'] = $request->boolean('batch_tracking_enabled');
+        }
+        if ($request->has('expiry_date_required')) {
+            $validated['expiry_date_required'] = $request->boolean('expiry_date_required');
+        }
 
         $product->update($validated);
 
@@ -373,6 +390,8 @@ class ProductController extends Controller
             'retail_price' => 'nullable|numeric|min:0',
             'market_price' => 'nullable|numeric|min:0',
             'return_product' => 'nullable|boolean',
+            'batch_tracking_enabled' => 'nullable|boolean',
+            'expiry_date_required' => 'nullable|boolean',
             'purchase_unit_id' => 'nullable|exists:measurement_units,id',
             'sales_unit_id' => 'nullable|exists:measurement_units,id',
             'transfer_unit_id' => 'nullable|exists:measurement_units,id',
@@ -389,6 +408,9 @@ class ProductController extends Controller
 
         // Boolean cast
         $validated['return_product'] = $request->boolean('return_product');
+        $validated['batch_tracking_enabled'] = $request->boolean('batch_tracking_enabled');
+        $validated['expiry_date_required'] = $request->boolean('expiry_date_required');
+        $this->validateBatchSettings($request, null);
 
         // Auto-generate search code from category's category_code
         $validated['product_search_code'] = $this->generateProductSearchCode($validated['category_id'] ?? null);
@@ -396,6 +418,67 @@ class ProductController extends Controller
         Product::create($validated);
 
         return redirect()->route('products.index')->with('success', 'Product duplicated successfully!');
+    }
+
+    private function validateBatchSettings(Request $request, ?Product $product): void
+    {
+        $tracksBatches = $request->has('batch_tracking_enabled')
+            ? $request->boolean('batch_tracking_enabled')
+            : (bool) ($product?->batch_tracking_enabled);
+        $requiresExpiry = $request->has('expiry_date_required')
+            ? $request->boolean('expiry_date_required')
+            : (bool) ($product?->expiry_date_required);
+
+        if ($requiresExpiry && !$tracksBatches) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'expiry_date_required' => 'Expiry tracking requires batch tracking to be enabled.',
+            ]);
+        }
+
+        if (!$product) {
+            if ($tracksBatches && (float) $request->input('shop_quantity', 0) > 0) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'shop_quantity' => 'Batch-tracked products must receive their opening stock through a GRN.',
+                ]);
+            }
+            return;
+        }
+
+        if ($tracksBatches && !$product->batch_tracking_enabled) {
+            $knownBatchStock = (float) $product->batches()->sum('available_sales_quantity');
+            if (abs((float) $product->shop_quantity - $knownBatchStock) > 0.00001) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'Existing stock must be fully reconciled to batches before enabling batch tracking.',
+                ]);
+            }
+        }
+
+        if (!$tracksBatches && $product->batch_tracking_enabled) {
+            $hasBatchHistory = $product->batches()
+                ->where(function ($query) {
+                    $query->where('received_sales_quantity', '>', 0)
+                        ->orWhere('available_sales_quantity', '>', 0)
+                        ->orWhere('quarantined_quantity', '>', 0);
+                })
+                ->exists();
+            if ($hasBatchHistory) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'Batch tracking cannot be disabled after batch stock has been received.',
+                ]);
+            }
+        }
+
+        if ($requiresExpiry && !$product->expiry_date_required) {
+            $hasUnidentifiedExpiryStock = $product->batches()
+                ->where('available_sales_quantity', '>', 0)
+                ->whereNull('expiry_date')
+                ->exists();
+            if ($hasUnidentifiedExpiryStock) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'expiry_date_required' => 'Every active batch needs an expiry date before requiring expiry tracking.',
+                ]);
+            }
+        }
     }
 
     /**

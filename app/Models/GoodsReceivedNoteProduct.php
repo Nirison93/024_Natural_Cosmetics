@@ -15,15 +15,20 @@ class GoodsReceivedNoteProduct extends Model
         'goods_received_note_id',
         'product_id',
         'batch_number',
+        'product_available_quantity_id',
+        'batch_tracked',
         'quantity',
         'purchase_price', 
+        'selling_price',
         'discount',
         'total',
     ];
 
     protected $casts = [
-        'quantity' => 'integer',
+        'batch_tracked' => 'boolean',
+        'quantity' => 'decimal:2',
         'purchase_price' => 'decimal:2',
+        'selling_price' => 'decimal:2',
         'discount' => 'decimal:2',
         'total' => 'decimal:2',
     ];
@@ -38,6 +43,11 @@ class GoodsReceivedNoteProduct extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function batch()
+    {
+        return $this->belongsTo(ProductAvailableQuantity::class, 'product_available_quantity_id');
     }
 
     /**

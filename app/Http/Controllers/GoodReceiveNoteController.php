@@ -11,9 +11,11 @@ use App\Models\CompanyInformation;
 use App\Models\ProductMovement;
 use App\Models\MeasurementUnit;
 use App\Models\ProductAvailableQuantity;
+use App\Services\BatchInventoryService;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Validation\ValidationException;
 
 /**
  * GoodReceiveNoteController
@@ -137,14 +139,13 @@ class GoodReceiveNoteController extends Controller
      * @param Request $request - Contains GRN data and product array
      * @return \Illuminate\Http\RedirectResponse
      */
-    public function store(Request $request)
+    public function store(Request $request, BatchInventoryService $batchInventory)
     {
-        // Validate incoming data with comprehensive rules
         $validated = $request->validate([
             'goods_received_note_no'   => 'required|string|unique:goods_received_notes,goods_received_note_no',
             'supplier_id'   => 'required|exists:suppliers,id',
             'goods_received_note_date'      => 'required|date',
-            'batch_number'  => 'nullable|string',
+            'batch_number'  => 'nullable|string|max:255',
             'subtotal'      => 'nullable|numeric|min:0',
             'discount'      => 'nullable|numeric|min:0',
             'tax_total'     => 'nullable|numeric|min:0',
@@ -152,114 +153,168 @@ class GoodReceiveNoteController extends Controller
 
             'products'                      => 'required|array|min:1',
             'products.*.product_id'         => 'required|exists:products,id',
-            'products.*.batch_number'       => 'nullable|string',
+            'products.*.batch_number'       => 'nullable|string|max:255',
+            'products.*.expiry_date'        => 'nullable|date_format:Y-m-d',
             'products.*.issued_quantity'    => 'required|numeric|min:0.01',
             'products.*.purchase_price'     => 'required|numeric|min:0',
+            'products.*.selling_price'      => 'nullable|numeric|min:0',
             'products.*.discount'           => 'nullable|numeric|min:0',
             'products.*.unit'               => 'nullable|string',
             'products.*.total'              => 'nullable|numeric',
         ]);
 
-        // Start transaction to ensure data consistency across all operations
-        DB::beginTransaction();
-
-        try {
-            // Create main GRN record
-            $grn = GoodsReceivedNote::create([
-                'goods_received_note_no'        => $validated['goods_received_note_no'],
-                'batch_number'  => $validated['batch_number'] ?? null,
-                'supplier_id'   => $validated['supplier_id'],
-                'user_id'       => auth()->id(),
-                'goods_received_note_date'      => $validated['goods_received_note_date'],
-                'subtotal'      => $validated['subtotal'] ?? 0,
-                'discount'      => $validated['discount'] ?? 0,
-                'tax_total'     => $validated['tax_total'] ?? 0,
-                'remarks'       => $validated['remarks'] ?? null,
-                'status'        => 1,   
-                'error'=> null,
-            ]);
-
- 
-            // Process each received product
-            foreach ($validated['products'] as $product) {
-                // Calculate line total: (qty × price) - discount
-                $lineTotal = ((float)($product['issued_quantity']) * (float)($product['purchase_price'])) - ((float)($product['discount'] ?? 0));
-
-                // Use GRN batch_number for all products in this GRN
-                $batchNumberForProduct = $validated['batch_number'] ?? $product['batch_number'] ?? null;
-
-                // Save received product line (store quantity in `quantity` column)
-                GoodsReceivedNoteProduct::create([
-                    'goods_received_note_id' => $grn->id,
-                    'product_id'           => $product['product_id'],
-                    // Store received amount in `quantity` using issued_quantity from frontend
-                    'quantity'              => (int) $product['issued_quantity'],
-                    'purchase_price'        => $product['purchase_price'],
-                    'discount'              => $product['discount'] ?? 0,
-                    'total'                 => $lineTotal,
-                    'batch_number'          => $batchNumberForProduct,
-                   
-                ]);
-
-                // Save batch number to ProductAvailableQuantity table if batch_number is provided
-                if (!empty($batchNumberForProduct)) {
-                    $issuedQty = (int) $product['issued_quantity'];
-                    
-                    $existingRecord = ProductAvailableQuantity::where('product_id', $product['product_id'])
-                        ->where('batch_number', $batchNumberForProduct)
-                        ->first();
-
-                    if ($existingRecord) {
-                        // Update existing batch record - add to available quantity
-                        $existingRecord->increment('available_quantity', $issuedQty);
-                    } else {
-                        // Create new batch record with GRN ID
-                        ProductAvailableQuantity::create([
-                            'product_id'              => $product['product_id'],
-                            'batch_number'           => $batchNumberForProduct,
-                            'available_quantity'     => $issuedQty,
-                            'quantity_in_transfer_unit' => 0,
-                            'quantity_in_sales_unit' => 0,
-                            'unit_id'                => $product['measurement_unit_id'] ?? null,
-                            'goods_received_note_id' => $grn->id,
-                        ]);
-                    }
-                }
-
-                // Record product movement (Type 0: PURCHASE - increases stock)
-                // Creates audit trail for inventory tracking
-                ProductMovement::recordMovement(
-                    $product['product_id'],
-                    ProductMovement::TYPE_PURCHASE,
-                    (int) $product['issued_quantity'], // Positive for stock increase
-                    $validated['goods_received_note_no']
-                );
-
-                // Increment shop stock quantity on the product by the received amount
-                // All stock is now managed via GRN - stored in shop_quantity
-                $productModel = Product::find($product['product_id']);
-                if ($productModel) {
-                    $receivedQty = (int) $product['issued_quantity'];
-                    
-                    // Update shop quantity with received stock
-                    $productModel->increment('shop_quantity', $receivedQty);
-                }
+        $validationErrors = [];
+        foreach ($validated['products'] as $index => $line) {
+            $product = Product::find($line['product_id']);
+            if (!$product || !$product->batch_tracking_enabled) {
+                continue;
             }
 
-            // Commit transaction - all operations succeeded
-            DB::commit();
+            $batchNumber = trim((string) ($line['batch_number'] ?? ''));
+            if ($batchNumber === '') {
+                $batchNumber = trim((string) ($validated['batch_number'] ?? ''));
+            }
+            if ($batchNumber === '') {
+                $validationErrors["products.{$index}.batch_number"] = 'A batch number is required for this product.';
+            }
+
+            if ($product->expiry_date_required && empty($line['expiry_date'])) {
+                $validationErrors["products.{$index}.expiry_date"] = 'An expiry date is required for this product.';
+            }
+
+            if (!empty($line['expiry_date']) && Carbon::parse($line['expiry_date'])->isBefore(today())) {
+                $validationErrors["products.{$index}.expiry_date"] = 'Expired batches cannot be received.';
+            }
+        }
+
+        if ($validationErrors) {
+            throw ValidationException::withMessages($validationErrors);
+        }
+
+        try {
+            DB::transaction(function () use ($validated, $batchInventory) {
+                $products = Product::whereIn(
+                    'id',
+                    collect($validated['products'])->pluck('product_id')->unique()
+                )
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id');
+
+                $grn = GoodsReceivedNote::create([
+                    'goods_received_note_no' => $validated['goods_received_note_no'],
+                    'batch_number' => $validated['batch_number'] ?? null,
+                    'supplier_id' => $validated['supplier_id'],
+                    'user_id' => auth()->id(),
+                    'goods_received_note_date' => $validated['goods_received_note_date'],
+                    'subtotal' => $validated['subtotal'] ?? 0,
+                    'discount' => $validated['discount'] ?? 0,
+                    'tax_total' => $validated['tax_total'] ?? 0,
+                    'remarks' => $validated['remarks'] ?? null,
+                    'status' => 1,
+                    'error' => null,
+                ]);
+
+                foreach ($validated['products'] as $line) {
+                    $productModel = $products->get((int) $line['product_id']);
+                    if (!$productModel) {
+                        throw ValidationException::withMessages([
+                            'products' => 'A selected product is no longer available.',
+                        ]);
+                    }
+
+                    $quantity = (float) $line['issued_quantity'];
+                    $purchasePrice = (float) $line['purchase_price'];
+                    $sellingPrice = (float) ($line['selling_price'] ?? $productModel->retail_price ?? 0);
+                    $discount = (float) ($line['discount'] ?? 0);
+                    $lineTotal = ($quantity * $purchasePrice) - $discount;
+                    $batchNumber = trim((string) ($line['batch_number'] ?? $validated['batch_number'] ?? ''));
+                    $batch = null;
+
+                    if ($productModel->batch_tracking_enabled) {
+                        $batch = $batchInventory->receive(
+                            $productModel,
+                            $batchNumber,
+                            $line['expiry_date'] ?? null,
+                            $quantity,
+                            $purchasePrice,
+                            $sellingPrice,
+                            (int) $validated['supplier_id'],
+                            $grn->id
+                        );
+                    } elseif ($batchNumber !== '') {
+                        $batch = ProductAvailableQuantity::where('product_id', $productModel->id)
+                            ->where('batch_number', $batchNumber)
+                            ->lockForUpdate()
+                            ->first();
+
+                        if ($batch) {
+                            $batch->increment('available_quantity', $quantity);
+                        } else {
+                            $batch = ProductAvailableQuantity::create([
+                                'product_id' => $productModel->id,
+                                'batch_number' => $batchNumber,
+                                'available_quantity' => $quantity,
+                                'quantity_in_transfer_unit' => 0,
+                                'quantity_in_sales_unit' => 0,
+                                'unit_id' => $line['measurement_unit_id'] ?? null,
+                                'goods_received_note_id' => $grn->id,
+                            ]);
+                        }
+                    }
+
+                    $grnProduct = GoodsReceivedNoteProduct::create([
+                        'goods_received_note_id' => $grn->id,
+                        'product_id' => $productModel->id,
+                        'batch_number' => $batchNumber !== '' ? $batchNumber : null,
+                        'product_available_quantity_id' => $batch?->id,
+                        'batch_tracked' => (bool) $productModel->batch_tracking_enabled,
+                        'quantity' => $quantity,
+                        'purchase_price' => $purchasePrice,
+                        'selling_price' => $sellingPrice,
+                        'discount' => $discount,
+                        'total' => $lineTotal,
+                    ]);
+
+                    if ($productModel->batch_tracking_enabled) {
+                        $batchInventory->recordBatchMovement(
+                            $productModel,
+                            $batch,
+                            ProductMovement::TYPE_PURCHASE,
+                            $quantity,
+                            $validated['goods_received_note_no'],
+                            GoodsReceivedNote::class,
+                            $grn->id,
+                            (float) $batch->available_sales_quantity - $quantity,
+                            (float) $batch->available_sales_quantity,
+                            null,
+                            'GRN product row ' . $grnProduct->id
+                        );
+                    } else {
+                        ProductMovement::recordMovement(
+                            $productModel->id,
+                            ProductMovement::TYPE_PURCHASE,
+                            $quantity,
+                            $validated['goods_received_note_no']
+                        );
+                        $productModel->increment('shop_quantity', $quantity);
+                    }
+                }
+            });
 
             return redirect()
                 ->route('good-receive-notes.index')
                 ->with('success', 'GRN created successfully!');
 
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Throwable $e) {
-            // Rollback all changes if any operation fails
-            DB::rollBack();
+            report($e);
 
             return redirect()
                 ->back()
-                ->withErrors(['error' => 'Failed to create Good Receive Note: ' . $e->getMessage()])
+                ->withErrors(['error' => 'Failed to create Good Receive Note. No stock changes were saved.'])
                 ->withInput();
         }
     }
@@ -332,15 +387,13 @@ class GoodReceiveNoteController extends Controller
      * @param GoodsReceivedNote $goodReceiveNote - The GRN to update (route model binding)
      * @return \Illuminate\Http\RedirectResponse
      */
-    public function updateStatus(Request $request, GoodsReceivedNote $goodReceiveNote)
+    public function updateStatus(Request $request, GoodsReceivedNote $goodReceiveNote, BatchInventoryService $batchInventory)
     {
-        // Validate status is one of allowed values
         $validated = $request->validate([
             'status' => 'required|in:0,1,2',
         ]);
 
-        // Update the GRN status
-        $goodReceiveNote->update(['status' => $validated['status']]);
+        $this->changeStatus($goodReceiveNote, (int) $validated['status'], $batchInventory);
 
         return redirect()->back()->with('success', 'Status updated successfully');
     }
@@ -357,12 +410,96 @@ class GoodReceiveNoteController extends Controller
      * @param GoodsReceivedNote $goodsReceivedNote - The GRN to delete (route model binding)
      * @return \Illuminate\Http\RedirectResponse
      */
-    public function destroy(GoodsReceivedNote $goodsReceivedNote)
+    public function destroy(GoodsReceivedNote $goodsReceivedNote, BatchInventoryService $batchInventory)
     {
-        // Mark as inactive rather than hard delete
-        $goodsReceivedNote->update(['status' => 0]);
+        $this->changeStatus($goodsReceivedNote, 0, $batchInventory);
 
         return redirect()->back()->with('success', 'Good Receive Note marked as inactive successfully');
+    }
+
+    private function changeStatus(
+        GoodsReceivedNote $goodReceiveNote,
+        int $status,
+        BatchInventoryService $batchInventory
+    ): void {
+        DB::transaction(function () use ($goodReceiveNote, $status, $batchInventory) {
+            $grn = GoodsReceivedNote::query()
+                ->whereKey($goodReceiveNote->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $currentStatus = (int) $grn->status;
+            if ($currentStatus === $status) {
+                return;
+            }
+
+            if ($currentStatus > 0 && $status === 0 && !$grn->inventory_reversed_at) {
+                $lines = GoodsReceivedNoteProduct::query()
+                    ->where('goods_received_note_id', $grn->id)
+                    ->where('batch_tracked', true)
+                    ->orderBy('id')
+                    ->get();
+
+                foreach ($lines as $line) {
+                    $product = Product::query()->whereKey($line->product_id)->lockForUpdate()->firstOrFail();
+                    $batch = ProductAvailableQuantity::query()
+                        ->whereKey($line->product_available_quantity_id)
+                        ->where('product_id', $product->id)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (!$batch) {
+                        throw ValidationException::withMessages([
+                            'status' => "Cannot cancel GRN {$grn->goods_received_note_no}: batch inventory is missing.",
+                        ]);
+                    }
+
+                    $batchInventory->reverseReceipt(
+                        $product,
+                        $batch,
+                        (float) $line->quantity,
+                        $grn->goods_received_note_no,
+                        $grn->id
+                    );
+                }
+
+                $grn->inventory_reversed_at = now();
+            } elseif ($currentStatus === 0 && $status > 0 && $grn->inventory_reversed_at) {
+                $lines = GoodsReceivedNoteProduct::query()
+                    ->where('goods_received_note_id', $grn->id)
+                    ->where('batch_tracked', true)
+                    ->orderBy('id')
+                    ->get();
+
+                foreach ($lines as $line) {
+                    $product = Product::query()->whereKey($line->product_id)->lockForUpdate()->firstOrFail();
+                    $batch = ProductAvailableQuantity::query()
+                        ->whereKey($line->product_available_quantity_id)
+                        ->where('product_id', $product->id)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (!$batch) {
+                        throw ValidationException::withMessages([
+                            'status' => "Cannot reactivate GRN {$grn->goods_received_note_no}: batch inventory is missing.",
+                        ]);
+                    }
+
+                    $batchInventory->restoreReceipt(
+                        $product,
+                        $batch,
+                        (float) $line->quantity,
+                        $grn->goods_received_note_no,
+                        $grn->id
+                    );
+                }
+
+                $grn->inventory_reversed_at = null;
+            }
+
+            $grn->status = $status;
+            $grn->save();
+        });
     }
 
     /**

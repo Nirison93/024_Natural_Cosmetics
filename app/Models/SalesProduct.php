@@ -44,4 +44,9 @@ class SalesProduct extends Model
     {
         return $this->hasMany(SalesReturnProduct::class, 'product_id', 'product_id');
     }
+
+    public function batchAllocations()
+    {
+        return $this->hasMany(SalesProductBatch::class);
+    }
 }

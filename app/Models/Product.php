@@ -54,6 +54,8 @@ class Product extends Model
         'retail_price',
         'market_price',
         'return_product',
+        'batch_tracking_enabled',
+        'expiry_date_required',
         'purchase_unit_id',
         'sales_unit_id',
         'transfer_unit_id',
@@ -67,8 +69,14 @@ class Product extends Model
     // Virtual attributes that are always computed and returned with the model
     protected $appends = [
         'qty',
+        'shop_quantity_in_sales_unit',
         'shop_quantity_in_transfer_unit',
         'shop_quantity_in_purchase_unit'
+    ];
+
+    protected $casts = [
+        'batch_tracking_enabled' => 'boolean',
+        'expiry_date_required' => 'boolean',
     ];
 
     /**
@@ -150,6 +158,11 @@ class Product extends Model
         return $this->hasMany(ProductMovement::class);
     }
 
+    public function batches()
+    {
+        return $this->hasMany(ProductAvailableQuantity::class);
+    }
+
     // Return products relationship
     public function returnProducts()
     {
@@ -177,6 +190,11 @@ class Product extends Model
     // Virtual accessor for 'qty' to maintain backward compatibility
     // Maps to shop_quantity for controllers that still use 'qty'
     public function getQtyAttribute()
+    {
+        return $this->shop_quantity;
+    }
+
+    public function getShopQuantityInSalesUnitAttribute()
     {
         return $this->shop_quantity;
     }

@@ -13,8 +13,10 @@ use App\Models\ProductAvailableQuantity;
 use App\Models\MeasurementUnit;
 use App\Models\CompanyInformation;
 use App\Models\User;
+use App\Services\BatchInventoryService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 /**
@@ -170,7 +172,8 @@ class GoodReceiveNoteReturnController extends Controller
                     'product',
                     'product.purchaseUnit',
                     'product.transferUnit',
-                    'product.salesUnit'
+                    'product.salesUnit',
+                    'batch'
                 ])
                 ->get()
                 ->map(function($grnProduct) {
@@ -189,6 +192,11 @@ class GoodReceiveNoteReturnController extends Controller
                     
                     return [
                         'product_id' => $grnProduct->product_id,
+                        'goods_received_note_product_id' => $grnProduct->id,
+                        'product_available_quantity_id' => $grnProduct->product_available_quantity_id,
+                        'batch_tracked' => (bool) ($product->batch_tracking_enabled ?? false),
+                        'expiry_date' => $grnProduct->batch?->expiry_date?->format('Y-m-d'),
+                        'available_sales_quantity' => (float) ($grnProduct->batch?->available_sales_quantity ?? 0),
                         'name' => $product->name ?? 'N/A',
                         'batch_number' => $grnProduct->batch_number ?? 'N/A',
                         'quantity' => $grnProduct->quantity ?? 0,
@@ -238,7 +246,7 @@ class GoodReceiveNoteReturnController extends Controller
      * @param Request $request - Contains goods_received_note_id, date, user_id, and products array
      * @return \Illuminate\Http\RedirectResponse
      */
-    public function store(Request $request)
+    public function store(Request $request, BatchInventoryService $batchInventory)
     {
         // Validate incoming data
         $validated = $request->validate([
@@ -247,6 +255,7 @@ class GoodReceiveNoteReturnController extends Controller
             'user_id' => 'required|exists:users,id',
             'products' => 'required|array|min:1',
             'products.*.product_id' => 'required|exists:products,id',
+            'products.*.goods_received_note_product_id' => 'nullable|exists:goods_received_notes_products,id',
             'products.*.qty' => 'required|numeric|min:1',
             'products.*.unit_id' => 'required|exists:measurement_units,id',
             'products.*.remarks' => 'nullable|string',
@@ -267,6 +276,65 @@ class GoodReceiveNoteReturnController extends Controller
 
             // Process each returned product
             foreach ($validated['products'] as $p) {
+                $product = Product::query()->whereKey($p['product_id'])->lockForUpdate()->firstOrFail();
+                if ($product->batch_tracking_enabled) {
+                    $grnProductId = $p['goods_received_note_product_id'] ?? null;
+                    if (!$grnProductId) {
+                        throw ValidationException::withMessages([
+                            'products' => "Select the original GRN line for batch-tracked product {$product->name}.",
+                        ]);
+                    }
+
+                    $grnProduct = GoodsReceivedNoteProduct::query()
+                        ->whereKey($grnProductId)
+                        ->where('goods_received_note_id', $validated['goods_received_note_id'])
+                        ->where('product_id', $product->id)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+                    if (!$grnProduct->product_available_quantity_id
+                        || (int) $p['unit_id'] !== (int) $product->sales_unit_id) {
+                        throw ValidationException::withMessages([
+                            'products' => 'Batch-tracked GRN returns must use the original batch and sales unit.',
+                        ]);
+                    }
+
+                    $batch = ProductAvailableQuantity::query()
+                        ->whereKey($grnProduct->product_available_quantity_id)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+                    $returnQuantity = (float) $p['qty'];
+                    if ($returnQuantity > (float) $grnProduct->quantity) {
+                        throw ValidationException::withMessages([
+                            'products' => 'Return quantity exceeds the remaining quantity on the original GRN line.',
+                        ]);
+                    }
+                    $purchaseRate = (float) $product->purchase_to_transfer_rate ?: 1.0;
+                    $salesRate = (float) $product->transfer_to_sales_rate ?: 1.0;
+                    $returnAmount = $returnQuantity * ((float) $grnProduct->purchase_price / ($purchaseRate * $salesRate));
+
+                    $returnLine = GoodsReceivedNoteReturnProduct::create([
+                        'goods_received_note_return_id' => $grnReturn->id,
+                        'product_id' => $product->id,
+                        'goods_received_note_product_id' => $grnProduct->id,
+                        'product_available_quantity_id' => $batch->id,
+                        'quantity' => $returnQuantity,
+                        'measurement_unit_id' => $p['unit_id'],
+                        'remarks' => $p['remarks'] ?? null,
+                    ]);
+                    $batchInventory->deductForGrnReturn(
+                        $product,
+                        $batch,
+                        $returnQuantity,
+                        'GRN-RETURN-' . $grnReturn->id,
+                        $returnLine->id
+                    );
+                    $grnProduct->quantity = (float) $grnProduct->quantity - $returnQuantity;
+                    $grnProduct->total = max(0, (float) $grnProduct->total - $returnAmount);
+                    $grnProduct->save();
+                    $totalReturnAmount += $returnAmount;
+                    continue;
+                }
+
                 // Clamp the return quantity to the available quantity in the GRN product
                 $grnProduct = GoodsReceivedNoteProduct::where('goods_received_note_id', $validated['goods_received_note_id'])
                     ->where('product_id', $p['product_id'])
@@ -624,7 +692,7 @@ class GoodReceiveNoteReturnController extends Controller
      * @param GoodsReceivedNoteReturn $grnReturn - The return to delete (route model binding)
      * @return \Illuminate\Http\RedirectResponse
      */
-    public function destroy(GoodsReceivedNoteReturn $grnReturn)
+    public function destroy(GoodsReceivedNoteReturn $grnReturn, BatchInventoryService $batchInventory)
     {
         // Start database transaction for atomicity
         DB::beginTransaction();
@@ -639,6 +707,35 @@ class GoodReceiveNoteReturnController extends Controller
             $existing = GoodsReceivedNoteReturnProduct::where('goods_received_note_return_id', $grnReturn->id)->get();
             // Restore stock for each returned product
             foreach ($existing as $ex) {
+                if ($ex->goods_received_note_product_id && $ex->product_available_quantity_id) {
+                    $grnProduct = GoodsReceivedNoteProduct::query()
+                        ->whereKey($ex->goods_received_note_product_id)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+                    $product = Product::query()->whereKey($ex->product_id)->lockForUpdate()->firstOrFail();
+                    $batch = ProductAvailableQuantity::query()
+                        ->whereKey($ex->product_available_quantity_id)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+                    $quantity = (float) $ex->quantity;
+                    $purchaseRate = (float) $product->purchase_to_transfer_rate ?: 1.0;
+                    $salesRate = (float) $product->transfer_to_sales_rate ?: 1.0;
+                    $returnAmount = $quantity * ((float) $grnProduct->purchase_price / ($purchaseRate * $salesRate));
+
+                    $batchInventory->restoreGrnReturn(
+                        $product,
+                        $batch,
+                        $quantity,
+                        'GRN-RETURN-' . $grnReturn->id . '-REVERSAL',
+                        $ex->id
+                    );
+                    $grnProduct->quantity = (float) $grnProduct->quantity + $quantity;
+                    $grnProduct->total = (float) $grnProduct->total + $returnAmount;
+                    $grnProduct->save();
+                    $totalReturnAmount += $returnAmount;
+                    continue;
+                }
+
                 // Restore the quantity in the original GRN product record
                 $grnProduct = GoodsReceivedNoteProduct::where('goods_received_note_id', $grnReturn->goods_received_note_id)
                     ->where('product_id', $ex->product_id)

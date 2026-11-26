@@ -361,6 +361,41 @@
         </div> -->
 
         <!-- SECTION 5: Additional Information -->
+        <div v-if="product?.batch_tracking_enabled" class="bg-white rounded-xl p-4 shadow-lg border border-white/60">
+          <h3 class="mb-3 text-lg font-semibold text-emerald-700 flex items-center gap-2">
+            📦 Batch Inventory
+          </h3>
+          <p class="mb-3 text-sm text-gray-600">
+            Expiry date required: <strong>{{ product?.expiry_date_required ? "Yes" : "No" }}</strong>
+          </p>
+          <div v-if="product?.batches?.length" class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="border-b border-gray-200 text-gray-500">
+                  <th class="px-3 py-2">Batch</th>
+                  <th class="px-3 py-2">Expiry</th>
+                  <th class="px-3 py-2 text-right">Sellable Qty</th>
+                  <th class="px-3 py-2 text-right">Purchase</th>
+                  <th class="px-3 py-2 text-right">Selling</th>
+                  <th class="px-3 py-2">Supplier</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="batch in product.batches" :key="batch.id" class="border-b border-gray-100">
+                  <td class="px-3 py-2 font-medium">{{ batch.batch_number }}</td>
+                  <td class="px-3 py-2">{{ batch.expiry_date || "Not recorded" }}</td>
+                  <td class="px-3 py-2 text-right">{{ Number(batch.available_sales_quantity || 0).toFixed(2) }}</td>
+                  <td class="px-3 py-2 text-right">{{ formatPrice(batch.purchase_price) }}</td>
+                  <td class="px-3 py-2 text-right">{{ formatPrice(batch.selling_price) }}</td>
+                  <td class="px-3 py-2">{{ batch.supplier?.name || "N/A" }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-else class="text-sm text-gray-500">No batches have been received yet.</p>
+        </div>
+
+        <!-- SECTION 5: Additional Information -->
         <div class="bg-white rounded-xl p-4 shadow-lg border border-white/60">
           <h3 class="mb-3 text-lg font-semibold text-indigo-600 flex items-center gap-2">
             ⚙️ Additional Information
@@ -374,6 +409,12 @@
                 >
                   {{ product?.return_product ? "Yes" : "No" }}
                 </span>
+              </p>
+            </div>
+            <div class="p-3 bg-white rounded-lg border border-gray-200">
+              <p class="text-xs text-gray-600">Batch Tracking</p>
+              <p class="text-sm font-medium text-gray-800">
+                {{ product?.batch_tracking_enabled ? "Enabled" : "Disabled" }}
               </p>
             </div>
             <div class="p-3 bg-white rounded-lg border border-gray-200">

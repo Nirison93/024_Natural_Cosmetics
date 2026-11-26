@@ -8,9 +8,19 @@ class ProductMovement extends Model
 {
     protected $fillable = [
         'product_id',
+        'product_available_quantity_id',
         'movement_type',
         'quantity',
         'reference',
+        'user_id',
+        'source_type',
+        'source_id',
+        'quantity_before',
+        'quantity_after',
+        'quarantined_quantity_before',
+        'quarantined_quantity_after',
+        'reason',
+        'notes',
     ];
 
     // Movement types
@@ -21,15 +31,30 @@ class ProductMovement extends Model
     const TYPE_SALE_RETURN = 4;    // Sale Return
     const TYPE_GRN_RETURN = 5;     // GRN Return / BRN Return
     const TYPE_STOCK_TRANSFER_RETURN = 6; // Damaged/Return from Shop to Store
+    const TYPE_STOCK_ADJUSTMENT = 7;
 
     protected $casts = [
         'quantity' => 'decimal:2',
+        'quantity_before' => 'decimal:2',
+        'quantity_after' => 'decimal:2',
+        'quarantined_quantity_before' => 'decimal:2',
+        'quarantined_quantity_after' => 'decimal:2',
     ];
 
     // Relationships
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function batch()
+    {
+        return $this->belongsTo(ProductAvailableQuantity::class, 'product_available_quantity_id');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 
     // Helper method to record movement

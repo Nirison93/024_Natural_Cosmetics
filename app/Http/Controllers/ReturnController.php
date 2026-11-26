@@ -11,12 +11,17 @@ use App\Models\Customer;
 use App\Models\ProductMovement;
 use App\Models\CompanyInformation;
 use App\Models\SalesReturnReplacementProduct;
+use App\Models\SalesProductBatch;
+use App\Models\SalesReturnProductBatch;
 use App\Models\Expense;
 use App\Models\Income;
+use App\Models\ProductAvailableQuantity;
+use App\Services\BatchInventoryService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -206,6 +211,14 @@ class ReturnController extends Controller
             'status' => 'required|in:0,1,2'
         ]);
 
+        if ($return->products()->whereHas('product', function ($query) {
+            $query->where('batch_tracking_enabled', true);
+        })->exists()) {
+            throw ValidationException::withMessages([
+                'status' => 'Batch-tracked returns cannot be reprocessed through the generic status workflow.',
+            ]);
+        }
+
         DB::transaction(function () use ($request, $return) {
             $oldStatus = $return->status;
             $newStatus = $request->status;
@@ -223,7 +236,7 @@ class ReturnController extends Controller
                     foreach ($return->products as $returnProduct) {
                         // Increase product quantity
                         $product = Product::find($returnProduct->product_id);
-                        if ($product) {
+                        if ($product && !$product->batch_tracking_enabled) {
                             $product->increment('shop_quantity', $returnProduct->quantity);
                             
                             // Record product movement (Sale Return - increases stock)
@@ -239,7 +252,7 @@ class ReturnController extends Controller
                     // Issue replacement products (exchange) - decrease stock
                     foreach ($return->replacements as $rep) {
                         $product = Product::find($rep->product_id);
-                        if ($product) {
+                        if ($product && !$product->batch_tracking_enabled) {
                             $product->decrement('shop_quantity', $rep->quantity);
                             
                             // Record product movement (Release - reduces stock)
@@ -410,9 +423,21 @@ class ReturnController extends Controller
         if ($request->return_type == SalesReturn::TYPE_PRODUCT_RETURN && $request->products) {
             foreach ($request->products as $productData) {
                 $product = Product::find($productData['product_id']);
+                if ($product->batch_tracking_enabled) {
+                    throw ValidationException::withMessages([
+                        'products' => 'Batch-tracked products must be returned from their original invoice.',
+                    ]);
+                }
                 if (!$product->return_product) {
                     return back()->withErrors(['products' => "Product {$product->name} is not returnable."]);
                 }
+            }
+        }
+        foreach ($request->replacement_products ?? [] as $replacement) {
+            if (Product::whereKey($replacement['product_id'])->value('batch_tracking_enabled')) {
+                throw ValidationException::withMessages([
+                    'replacement_products' => 'Batch-tracked replacement products must use an invoice-linked return.',
+                ]);
             }
         }
 
@@ -459,7 +484,7 @@ class ReturnController extends Controller
                 // Apply stock changes immediately: increase returned products
                 foreach (SalesReturnProduct::where('sales_return_id', $return->id)->get() as $returnProduct) {
                     $product = Product::find($returnProduct->product_id);
-                    if ($product) {
+                    if ($product && !$product->batch_tracking_enabled) {
                         $product->increment('shop_quantity', $returnProduct->quantity);
                         ProductMovement::recordMovement(
                             $returnProduct->product_id,
@@ -635,6 +660,8 @@ class ReturnController extends Controller
         ->whereHas('product', function($query) {
             $query->where('return_product', true);
         })
+        ->where('is_return', false)
+        ->where('quantity', '>', 0)
         ->whereHas('sale', function($query) {
             // Only sales from last 30 days by default
             $query->where('sale_date', '>=', now()->subDays(30));
@@ -670,11 +697,6 @@ class ReturnController extends Controller
             });
         }
 
-        // Exclude products that have been fully returned for this sale/product
-        $query->whereRaw('(
-            (SELECT COALESCE(SUM(quantity),0) FROM sales_return_products srp WHERE srp.product_id = sales_products.product_id AND srp.sales_return_id IN (SELECT id FROM sales_return WHERE sale_id = sales_products.sale_id))
-        ) < sales_products.quantity');
-
         $salesProducts = $query->orderBy('id', 'desc')
                               ->paginate(10, ['*'], 'sales_page')
                               ->withQueryString();
@@ -705,7 +727,7 @@ class ReturnController extends Controller
     /**
      * Create return from selected sales products
      */
-    public function createFromSales(Request $request)
+    public function createFromSales(Request $request, BatchInventoryService $batchInventory)
 {
     $request->validate([
         'return_type' => 'required|in:1,2', // 1 = Product Return, 2 = Cash Return
@@ -715,6 +737,7 @@ class ReturnController extends Controller
         'selected_products' => 'required|array|min:1',
         'selected_products.*.sales_product_id' => 'required|exists:sales_products,id',
         'selected_products.*.return_quantity' => 'required|integer|min:1',
+        'selected_products.*.return_condition' => 'nullable|in:sellable,damaged,expired',
         'replacement_products' => 'nullable|array',
         'replacement_products.*.product_id' => 'required_with:replacement_products|exists:products,id',
         'replacement_products.*.quantity' => 'required_with:replacement_products|integer|min:1',
@@ -725,7 +748,7 @@ class ReturnController extends Controller
         'payments.*.method' => 'required_with:payments|string',
     ]);
 
-    DB::transaction(function () use ($request) {
+    DB::transaction(function () use ($request, $batchInventory) {
         // Get the first sales product to determine sale and customer
         $firstSalesProduct = SalesProduct::with(['sale', 'product'])->find($request->selected_products[0]['sales_product_id']);
         
@@ -766,21 +789,23 @@ class ReturnController extends Controller
         ]);
 
         foreach ($request->selected_products as $productData) {
-            $salesProduct = SalesProduct::with('product')->find($productData['sales_product_id']);
+            $salesProduct = SalesProduct::with('product')
+                ->whereKey($productData['sales_product_id'])
+                ->lockForUpdate()
+                ->firstOrFail();
+            $lockedProduct = Product::query()
+                ->whereKey($salesProduct->product_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $salesProduct->setRelation('product', $lockedProduct);
             
             // Store original quantity before any updates
             $originalSoldQuantity = $salesProduct->quantity;
             
-            // Validate total return quantity (including previous returns) doesn't exceed sold quantity
-            $previousReturnedQty = SalesReturnProduct::whereHas('salesReturn', function($q) use ($salesProduct) {
-                $q->where('sale_id', $salesProduct->sale_id);
-            })
-            ->where('product_id', $salesProduct->product_id)
-            ->sum('quantity');
-
-            $totalReturnQty = $previousReturnedQty + $productData['return_quantity'];
-            if ($totalReturnQty > $originalSoldQuantity) {
-                throw new \Exception("Total return quantity (including previous returns) cannot exceed sold quantity for {$salesProduct->product->name}. Already returned: $previousReturnedQty, trying to return: {$productData['return_quantity']}, sold: {$originalSoldQuantity}");
+            if ($productData['return_quantity'] > $originalSoldQuantity) {
+                throw ValidationException::withMessages([
+                    'selected_products' => "Return quantity exceeds the remaining sold quantity for {$salesProduct->product->name}.",
+                ]);
             }
 
             // Validate product is returnable (only for product returns)
@@ -810,13 +835,68 @@ class ReturnController extends Controller
             $returnedDiscount = $unitDiscount * $productData['return_quantity'];
             $returnedSubtotal = $salesProduct->price * $productData['return_quantity'];
             
-            SalesReturnProduct::create([
+            $returnProduct = SalesReturnProduct::create([
                 'sales_return_id' => $return->id,
                 'product_id' => $salesProduct->product_id,
+                'sales_product_id' => $salesProduct->id,
                 'quantity' => $productData['return_quantity'],
+                'return_condition' => $productData['return_condition'] ?? 'sellable',
                 'price' => round($returnPrice, 2),
                 'total' => round($returnTotal, 2),
             ]);
+
+            if ($salesProduct->product->batch_tracking_enabled) {
+                $remainingToAllocate = (float) $productData['return_quantity'];
+                $saleBatches = SalesProductBatch::query()
+                    ->where('sales_product_id', $salesProduct->id)
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get();
+
+                foreach ($saleBatches as $saleBatch) {
+                    if ($remainingToAllocate <= 0.00001) {
+                        break;
+                    }
+
+                    $alreadyReturned = SalesReturnProductBatch::query()
+                        ->where('product_available_quantity_id', $saleBatch->product_available_quantity_id)
+                        ->whereHas('salesReturnProduct', function ($query) use ($salesProduct) {
+                            $query->where('sales_product_id', $salesProduct->id);
+                        })
+                        ->sum('quantity');
+                    $remainingFromBatch = max(0, (float) $saleBatch->quantity - (float) $alreadyReturned);
+                    $returnFromBatch = min($remainingFromBatch, $remainingToAllocate);
+                    if ($returnFromBatch <= 0) {
+                        continue;
+                    }
+
+                    $batch = ProductAvailableQuantity::query()
+                        ->whereKey($saleBatch->product_available_quantity_id)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+                    SalesReturnProductBatch::create([
+                        'sales_return_product_id' => $returnProduct->id,
+                        'product_available_quantity_id' => $batch->id,
+                        'quantity' => $returnFromBatch,
+                    ]);
+                    $batchInventory->receiveReturn(
+                        $salesProduct->product,
+                        $batch,
+                        $returnFromBatch,
+                        ($productData['return_condition'] ?? 'sellable') === 'sellable',
+                        'RETURN-' . $return->id,
+                        $returnProduct->id
+                    );
+
+                    $remainingToAllocate = round($remainingToAllocate - $returnFromBatch, 2);
+                }
+
+                if ($remainingToAllocate > 0.00001) {
+                    throw ValidationException::withMessages([
+                        'selected_products' => "Could not trace the returned quantity to its original batches for {$salesProduct->product->name}.",
+                    ]);
+                }
+            }
             
             // Update the sales_product record: adjust quantity, net_amount, discount_amount, total, and price
             $salesProduct->quantity = $salesProduct->quantity - $productData['return_quantity'];
@@ -871,7 +951,7 @@ class ReturnController extends Controller
         if ($request->return_type == SalesReturn::TYPE_PRODUCT_RETURN) {
             foreach (SalesReturnProduct::where('sales_return_id', $return->id)->get() as $returnProduct) {
                 $product = Product::find($returnProduct->product_id);
-                if ($product) {
+                if ($product && !$product->batch_tracking_enabled) {
                     $product->increment('shop_quantity', $returnProduct->quantity);
                     ProductMovement::recordMovement(
                         $returnProduct->product_id,
@@ -884,7 +964,7 @@ class ReturnController extends Controller
 
             foreach (SalesReturnReplacementProduct::where('sales_return_id', $return->id)->get() as $rep) {
                 $product = Product::find($rep->product_id);
-                if ($product) {
+                if ($product && !$product->batch_tracking_enabled) {
                     $product->decrement('shop_quantity', $rep->quantity);
                     ProductMovement::recordMovement(
                         $rep->product_id,
@@ -900,7 +980,7 @@ class ReturnController extends Controller
         if ($request->return_type == SalesReturn::TYPE_CASH_RETURN) {
             foreach (SalesReturnProduct::where('sales_return_id', $return->id)->get() as $returnProduct) {
                 $product = Product::find($returnProduct->product_id);
-                if ($product) {
+                if ($product && !$product->batch_tracking_enabled) {
                     $product->increment('shop_quantity', $returnProduct->quantity);
                     ProductMovement::recordMovement(
                         $returnProduct->product_id,
@@ -984,7 +1064,7 @@ class ReturnController extends Controller
                 ? $replacementNet / $replacementQuantity 
                 : $replacementPrice;
             
-            SalesProduct::create([
+            $replacementSalesProduct = SalesProduct::create([
                 'sale_id'   => $firstSalesProduct->sale_id,
                 'product_id'=> $rep->product_id,
                 'quantity'  => $replacementQuantity,
@@ -994,6 +1074,16 @@ class ReturnController extends Controller
                 'net_amount' => round($replacementNet, 2),
                 'is_return' => false,
             ]);
+
+            $replacementProduct = Product::query()->whereKey($rep->product_id)->lockForUpdate()->firstOrFail();
+            if ($replacementProduct->batch_tracking_enabled) {
+                $batchInventory->deductForSale(
+                    $replacementProduct,
+                    $replacementSalesProduct,
+                    $replacementQuantity,
+                    'RETURN-' . $return->id . '-REPLACEMENT'
+                );
+            }
             
             $totalReplacementNet += $replacementNet;
         }
@@ -1054,6 +1144,14 @@ class ReturnController extends Controller
             'products.*.quantity' => 'required|integer|min:1',
             'products.*.price' => 'required|numeric|min:0',
         ]);
+
+        if (collect($request->products)->contains(function ($item) {
+            return Product::whereKey($item['product_id'])->value('batch_tracking_enabled');
+        })) {
+            throw ValidationException::withMessages([
+                'products' => 'Batch-tracked returns cannot be edited through the generic return workflow.',
+            ]);
+        }
 
         DB::transaction(function () use ($request, $return) {
             // If status was APPROVED, reverse the stock movements before updating

@@ -165,12 +165,20 @@
                       >
                         + Add
                       </button>
-                      <span
-                        v-else
-                        class="px-3 py-1 bg-green-600 text-white text-xs rounded-lg inline-block"
-                      >
-                        Selected
-                      </span>
+                      <div v-else class="flex flex-col items-center gap-1">
+                        <span class="px-3 py-1 bg-green-600 text-white text-xs rounded-lg inline-block">
+                          Selected
+                        </span>
+                        <select
+                          v-model="selectedProducts.find((item) => item.id === product.id).return_condition"
+                          class="max-w-32 rounded border border-gray-300 px-2 py-1 text-xs"
+                          aria-label="Returned product condition"
+                        >
+                          <option value="sellable">Good condition</option>
+                          <option value="damaged">Damaged</option>
+                          <option value="expired">Expired</option>
+                        </select>
+                      </div>
                     </td>
                   </tr>
                   <tr v-if="filteredProducts.length === 0">
@@ -1008,6 +1016,7 @@ const addProduct = (product) => {
   selectedProducts.value.push({
     ...product,
     return_quantity: 1,
+    return_condition: "sellable",
   });
 };
 
@@ -1044,6 +1053,7 @@ const confirmAddProduct = () => {
   selectedProducts.value.push({
     ...currentProductToAdd.value,
     return_quantity: tempReturnQuantity.value,
+    return_condition: "sellable",
   });
 
   closeReturnQtyModal();
@@ -1420,6 +1430,7 @@ const submitReturn = () => {
     selected_products: selectedProducts.value.map((p) => ({
       sales_product_id: p.id,
       return_quantity: p.return_quantity,
+      return_condition: p.return_condition,
     })),
     replacement_products: replacementProducts.value.map((p) => ({
       product_id: p.product_id,
