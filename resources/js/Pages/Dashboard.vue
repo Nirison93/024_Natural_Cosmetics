@@ -330,6 +330,16 @@ onMounted(() => {
             <div class="font-semibold text-gray-900 mb-1">Sales Report</div>
             <div class="text-sm text-gray-600">View sales, profit, cost and invoices</div>
           </Link>
+
+          <Link
+            v-if="[0, 1, 3].includes($page.props.auth.user.role)"
+            :href="route('reports.batch-expiry.index', { report: 'dashboard' })"
+            class="group bg-white p-5 rounded-xl border border-emerald-200 shadow-sm hover:shadow-xl hover:border-emerald-300 hover:-translate-y-0.5 transition-all duration-300"
+          >
+            <div class="text-3xl mb-3">⏳</div>
+            <div class="font-semibold text-gray-900 mb-1">Batch &amp; Expiry Reports</div>
+            <div class="text-sm text-gray-600">Expiry alerts, batch stock, sales and returns</div>
+          </Link>
           
           <Link
             v-if="[0, 1, 3].includes($page.props.auth.user.role)"
