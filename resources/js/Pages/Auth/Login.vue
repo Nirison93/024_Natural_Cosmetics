@@ -189,7 +189,7 @@ const submit = () => {
 
           </form>
 
-          <p class="copyright">© {{ currentYear }} {{ $t('auth.copyright') }}</p>
+          <p class="copyright">© {{ currentYear }} Developed by {{ $t('auth.copyright') }}</p>
         </div>
       </div>
       </main>
