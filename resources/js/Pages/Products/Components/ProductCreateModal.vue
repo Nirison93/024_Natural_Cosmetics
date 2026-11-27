@@ -418,6 +418,26 @@
               </label>
             </div>
 
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <label class="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-300">
+                <input
+                  v-model="form.batch_tracking_enabled"
+                  type="checkbox"
+                  class="w-5 h-5 text-green-700 border-gray-300 rounded focus:ring-green-600"
+                />
+                <span class="text-sm font-medium text-gray-800">Enable batch tracking</span>
+              </label>
+              <label class="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-300">
+                <input
+                  v-model="form.expiry_date_required"
+                  type="checkbox"
+                  :disabled="!form.batch_tracking_enabled"
+                  class="w-5 h-5 text-green-700 border-gray-300 rounded focus:ring-green-600 disabled:opacity-50"
+                />
+                <span class="text-sm font-medium text-gray-800">Expiry date required</span>
+              </label>
+            </div>
+
             <!-- Image Upload (Hidden) -->
             <!-- <div>
               <label class="block mb-2 text-sm font-medium text-gray-700"
@@ -568,6 +588,8 @@ const form = useForm({
   retail_price: null,
   market_price: null,
   return_product: false,
+  batch_tracking_enabled: false,
+  expiry_date_required: false,
   purchase_unit_id: "",
   sales_unit_id: "",
   transfer_unit_id: "",
@@ -748,6 +770,8 @@ const submit = () => {
     retail_price: form.retail_price,
     market_price: form.market_price,
     return_product: form.return_product,
+    batch_tracking_enabled: form.batch_tracking_enabled,
+    expiry_date_required: form.expiry_date_required,
     purchase_unit_id: form.purchase_unit_id,
     sales_unit_id: form.sales_unit_id,
     transfer_unit_id: form.transfer_unit_id,

@@ -15,6 +15,8 @@ use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\TaxController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\BatchInventoryController;
+use App\Http\Controllers\BatchExpiryReportController;
 use App\Http\Controllers\GoodReceiveNoteController;
 use App\Http\Controllers\PurchaseExpenseController;
 use App\Http\Controllers\SaleController;
@@ -164,6 +166,8 @@ Route::middleware(['auth', 'role:0,1,3'])->group(function () {
 */
 Route::middleware(['auth', 'role:0,1,3'])->group(function () {
     // Inventory Management - Custom product routes BEFORE resource routes to avoid conflicts
+    Route::get('/inventory/batches', [BatchInventoryController::class, 'index'])->name('inventory.batches.index');
+    Route::post('/inventory/batches/{batch}/adjust', [BatchInventoryController::class, 'adjust'])->name('inventory.batches.adjust');
     Route::get('/products/fifo-price/{productId}', [ProductController::class, 'getFifoPricingInfo'])->name('products.fifo-price');
     Route::post('/products/pricing-by-batch', [ProductController::class, 'getPricingInfoByBatch'])->name('products.pricing-by-batch');
     Route::post('products/{product}/duplicate', [ProductController::class, 'duplicate'])->name('products.duplicate');
@@ -204,6 +208,19 @@ Route::middleware(['auth', 'role:0,1,2'])->group(function () {
     Route::post('/cash-drawer/open', [CashDrawerController::class, 'open'])->name('cash-drawer.open');
     Route::post('/cash-drawer/close', [CashDrawerController::class, 'close'])->name('cash-drawer.close');
 });
+
+Route::middleware(['auth', 'role:0,1,3'])
+    ->prefix('reports/batch-expiry')
+    ->name('reports.batch-expiry.')
+    ->group(function () {
+        Route::get('/{report}/export/{format}', [BatchExpiryReportController::class, 'export'])
+            ->whereIn('report', \App\Services\BatchExpiryReportService::REPORTS)
+            ->whereIn('format', ['xlsx', 'pdf'])
+            ->name('export');
+        Route::get('/{report?}', [BatchExpiryReportController::class, 'index'])
+            ->whereIn('report', \App\Services\BatchExpiryReportService::REPORTS)
+            ->name('index');
+    });
 
 /*
 |--------------------------------------------------------------------------

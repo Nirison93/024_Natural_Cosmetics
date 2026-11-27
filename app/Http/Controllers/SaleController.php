@@ -16,16 +16,18 @@ use App\Models\Discount;
 use App\Models\Quotation;
 use App\Models\CashDrawer;
 use App\Models\Expense;
+use App\Services\BatchInventoryService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 
 class SaleController extends Controller
 {
 
-      public function index()
+      public function index(BatchInventoryService $batchInventory)
     {
           $today = Carbon::today()->toDateString();
         $userId = Auth::id();
@@ -44,7 +46,7 @@ class SaleController extends Controller
             ->groupBy('product_id')
             ->pluck('total_qty', 'product_id');
 
-        $products = Product::select('id', 'name', 'barcode', 'product_search_code', 'retail_price', 'wholesale_price', 'market_price', 'shop_quantity', 'shop_low_stock_margin', 'image', 'brand_id', 'category_id', 'type_id', 'discount_id', 'sales_unit_id')
+        $products = Product::select('id', 'name', 'barcode', 'product_search_code', 'retail_price', 'wholesale_price', 'market_price', 'shop_quantity', 'shop_low_stock_margin', 'image', 'brand_id', 'category_id', 'type_id', 'discount_id', 'sales_unit_id', 'batch_tracking_enabled', 'expiry_date_required')
 
             ->with(['brand:id,name', 'category:id,name', 'type:id,name', 'discount:id,name,value,type','salesUnit:id,name'])
             ->orderBy('name')
@@ -54,6 +56,12 @@ class SaleController extends Controller
             })
             ->sortByDesc('total_sold')
             ->values();
+
+        $products->each(function ($product) use ($batchInventory) {
+            if ($product->batch_tracking_enabled) {
+                $product->setAttribute('shop_quantity', $batchInventory->sellableQuantity($product));
+            }
+        });
 
     $customers = Customer::select('id', 'name', 'status')
         ->orderBy('id', 'desc')
@@ -170,7 +178,7 @@ class SaleController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, BatchInventoryService $batchInventory)
     {
 
         $today = Carbon::today()->toDateString();
@@ -202,6 +210,15 @@ class SaleController extends Controller
 
         try {
             DB::beginTransaction();
+
+            $lockedProducts = Product::whereIn(
+                'id',
+                collect($request->items)->pluck('product_id')->unique()
+            )
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
 
             // Calculate totals
             $totalAmount = collect($request->items)->sum(function ($item) {
@@ -251,7 +268,7 @@ class SaleController extends Controller
                     ? $lineNetAmount / $item['quantity']
                     : $item['price'];
 
-                SalesProduct::create([
+                $salesProduct = SalesProduct::create([
                     'sale_id' => $sale->id,
                     'product_id' => $item['product_id'],
                     'quantity' => $item['quantity'],
@@ -262,17 +279,23 @@ class SaleController extends Controller
                     'is_return' => false,
                 ]);
 
-                // Update product stock
-                $product = Product::find($item['product_id']);
-                $product->decrement('shop_quantity', $item['quantity']);
-
-                // Record product movement (Sale - reduces stock)
-                ProductMovement::recordMovement(
-                    $item['product_id'],
-                    ProductMovement::TYPE_SALE,
-                    -$item['quantity'], // Negative for stock reduction
-                    $request->invoice_no
-                );
+                $product = $lockedProducts->get((int) $item['product_id']);
+                if ($product->batch_tracking_enabled) {
+                    $batchInventory->deductForSale(
+                        $product,
+                        $salesProduct,
+                        (float) $item['quantity'],
+                        $request->invoice_no
+                    );
+                } else {
+                    $product->decrement('shop_quantity', $item['quantity']);
+                    ProductMovement::recordMovement(
+                        $item['product_id'],
+                        ProductMovement::TYPE_SALE,
+                        -$item['quantity'],
+                        $request->invoice_no
+                    );
+                }
             }
 
             // Create a single income record for the actual sale amount (not payment amount)
@@ -296,10 +319,13 @@ class SaleController extends Controller
             return redirect()->route('sales.index')
                 ->with('success', 'Sale completed successfully! Invoice: ' . $sale->invoice_no);
 
-        } catch (\Exception $e) {
-            dd($e);
+        } catch (ValidationException $e) {
             DB::rollBack();
-            return back()->with('error', 'Sale failed: ' . $e->getMessage());
+            throw $e;
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            report($e);
+            return back()->withErrors(['error' => 'Sale failed. No stock changes were saved.']);
         }
     }
 

@@ -14,7 +14,9 @@ class SalesReturnProduct extends Model
     protected $fillable = [
         'sales_return_id',
         'product_id',
+        'sales_product_id',
         'quantity',
+        'return_condition',
         'price',
         'total',
     ];
@@ -34,6 +36,16 @@ class SalesReturnProduct extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function salesProduct()
+    {
+        return $this->belongsTo(SalesProduct::class);
+    }
+
+    public function batchAllocations()
+    {
+        return $this->hasMany(SalesReturnProductBatch::class);
     }
 
     // Accessor for formatted price

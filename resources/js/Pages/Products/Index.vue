@@ -16,6 +16,12 @@
         </div>
         <!-- Action Buttons -->
         <div class="flex gap-3">
+          <button
+            @click="$inertia.visit(route('inventory.batches.index'))"
+            class="px-6 py-2.5 rounded-[5px] font-medium text-sm bg-emerald-700 text-white hover:bg-emerald-800 transition-all duration-200"
+          >
+            📋 Batch Inventory
+          </button>
           <!-- Add GRN Button -->
           <button
             @click="$inertia.visit(route('good-receive-notes.create'))"

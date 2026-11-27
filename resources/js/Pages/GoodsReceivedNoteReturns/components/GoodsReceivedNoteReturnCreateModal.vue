@@ -72,10 +72,10 @@
                   <td class="px-4 py-4">
                     <select v-model.number="product.unit_id" @change="onUnitSelect(index)" class="w-full px-3 py-2 text-sm text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                       <option value="">Select Unit</option>
-                      <option v-if="getProductPurchaseUnit(product)" :value="getProductPurchaseUnit(product).id">
+                      <option v-if="!product.batch_tracked && getProductPurchaseUnit(product)" :value="getProductPurchaseUnit(product).id">
                         {{ getProductPurchaseUnit(product).name }} (Purchase)
                       </option>
-                      <option v-if="getProductTransferUnit(product)" :value="getProductTransferUnit(product).id">
+                      <option v-if="!product.batch_tracked && getProductTransferUnit(product)" :value="getProductTransferUnit(product).id">
                         {{ getProductTransferUnit(product).name }} (Transfer)
                       </option>
                       <option v-if="getProductSalesUnit(product)" :value="getProductSalesUnit(product).id">
@@ -118,8 +118,8 @@
                       <!-- If SALES unit selected: Show converted Bottle only -->
                       <template v-else-if="getProductSalesUnit(product) && isSalesUnitSelected(product)">
                         <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
-                          <span class="text-[10px] font-semibold">{{ getProductSalesUnit(product).name }}:</span>
-                          <span class="font-bold">{{ formatNumber(getSalesUnitQuantity(product)) }}</span>
+                          <span class="text-[10px] font-semibold">{{ product.batch_tracked ? 'Batch available:' : `${getProductSalesUnit(product).name}:` }}</span>
+                          <span class="font-bold">{{ formatNumber(product.batch_tracked ? product.available_sales_quantity : getSalesUnitQuantity(product)) }}</span>
                         </div>
                       </template>
                     </div>
@@ -141,6 +141,7 @@
 
                   <td class="px-4 py-4">
                     <input v-model.number="product.returnQty" type="number" step="0.01" min="0.01"
+                           :max="product.batch_tracked ? product.available_sales_quantity : product.qty"
                            @input="calculateTotal(index)"
                            class="w-full px-3 py-2 text-sm text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                   </td>
@@ -345,12 +346,16 @@ const onGrnSelect = async () => {
       
       return {
         product_id: item.product_id,
+        goods_received_note_product_id: item.goods_received_note_product_id,
+        product_available_quantity_id: item.product_available_quantity_id,
+        batch_tracked: item.batch_tracked,
+        available_sales_quantity: item.available_sales_quantity,
         product_name: item.name || 'N/A',
         qty: parseFloat(item.quantity) || 1,
         purchase_price: purchasePrice,
         discount: discount,
-        unit_id: item.purchase_unit?.id || null,
-        unit_name: item.purchase_unit?.name || '',
+        unit_id: item.batch_tracked ? (item.sales_unit?.id || null) : (item.purchase_unit?.id || null),
+        unit_name: item.batch_tracked ? (item.sales_unit?.name || '') : (item.purchase_unit?.name || ''),
         total: parseFloat(item.total) || 0,
         returnQty: 0,
         product: {
@@ -740,6 +745,7 @@ const submitForm = () => {
       const returnQty = parseFloat(p.returnQty ?? 0)
       return {
         product_id: p.product_id,
+        goods_received_note_product_id: p.goods_received_note_product_id || null,
         unit_id: p.unit_id,
         qty: returnQty,
         remarks: p.remarks || null,

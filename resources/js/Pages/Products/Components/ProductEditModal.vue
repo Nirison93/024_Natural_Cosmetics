@@ -407,6 +407,25 @@
                     Allow Product Returns
                   </label>
                 </div>
+                <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <label class="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200">
+                    <input
+                      v-model="form.batch_tracking_enabled"
+                      type="checkbox"
+                      class="w-4 h-4 text-green-700 border-gray-300 rounded focus:ring-green-600"
+                    />
+                    <span class="text-sm font-medium text-gray-700">Enable batch tracking</span>
+                  </label>
+                  <label class="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200">
+                    <input
+                      v-model="form.expiry_date_required"
+                      type="checkbox"
+                      :disabled="!form.batch_tracking_enabled"
+                      class="w-4 h-4 text-green-700 border-gray-300 rounded focus:ring-green-600 disabled:opacity-50"
+                    />
+                    <span class="text-sm font-medium text-gray-700">Expiry date required</span>
+                  </label>
+                </div>
                 <!-- Current Image Display (Hidden) -->
                 <!-- <div
                   v-if="product?.image"
@@ -538,6 +557,8 @@ const form = ref({
   retail_price: "",
   market_price: "",
   return_product: false,
+  batch_tracking_enabled: false,
+  expiry_date_required: false,
   purchase_unit_id: "",
   sales_unit_id: "",
   transfer_unit_id: "",
@@ -709,6 +730,8 @@ watch(
         retail_price: product.retail_price || "",
         market_price: product.market_price || "",
         return_product: product.return_product || false,
+        batch_tracking_enabled: !!product.batch_tracking_enabled,
+        expiry_date_required: !!product.expiry_date_required,
         purchase_unit_id: product.purchase_unit_id || "",
         sales_unit_id: product.sales_unit_id || "",
         transfer_unit_id: product.transfer_unit_id || "",

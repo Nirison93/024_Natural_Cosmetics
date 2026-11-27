@@ -22,6 +22,7 @@ class GoodsReceivedNote extends Model
         'tax_total',
         'remarks',
         'status',
+        'inventory_reversed_at',
     ];
 
     public function goods_received_note_products()
