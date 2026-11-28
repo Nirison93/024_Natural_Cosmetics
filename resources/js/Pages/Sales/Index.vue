@@ -414,55 +414,60 @@
               <div class="overflow-auto flex-1 min-h-0">
                 <table class="w-full table-fixed">
                   <colgroup>
-                    <col style="width: 17%" />
-                    <col style="width: 20%" />
-                    <col style="width: 24%" />
-                    <col style="width: 26%" />
-                    <col style="width: 13%" />
+                    <col style="width: 18%" />
+                    <col style="width: 22%" />
+                    <col style="width: 35%" />
+                    <col style="width: 15%" />
+                    <col style="width: 10%" />
                   </colgroup>
                   <thead class="border-b-2 border-blue-600">
                     <tr>
-                      <th class="px-1 py-3 text-left text-xs font-semibold text-blue-700">
+                      <th class="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-blue-700">
                         Product
                       </th>
                       <th
-                        class="px-1 py-3 text-right text-xs font-semibold text-blue-700"
+                        class="px-1 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-blue-700"
                       >
                         Price
                       </th>
                       <th
-                        class="px-1 py-3 text-center text-xs font-semibold text-blue-700"
+                        class="px-0 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-blue-700"
                       >
                         Qty
                       </th>
                       <th
-                        class="px-1 py-3 text-right text-xs font-semibold text-blue-700"
+                        class="px-1 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-blue-700"
                       >
                         Total
                       </th>
                       <th
-                        class="px-1 py-3 text-center text-xs font-semibold text-blue-700"
+                        class="px-0 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-blue-700"
                       >
-                        Action
+                        <span class="sr-only">Action</span>
                       </th>
                     </tr>
                   </thead>
-                  <tbody class="divide-y divide-gray-200">
-                            <tr v-if="form.payments && form.payments.length">
-                              <td colspan="5" class="text-left py-1">
-                                <span v-for="(p, idx) in form.payments" :key="idx" class="mr-4">
-                                  {{ getPaymentTypeText(p.payment_type) }}: {{ page.props.currency || '' }}{{ p.amount }}
-                                </span>
-                              </td>
-                            </tr>
+                  <tbody class="divide-y divide-gray-100">
+                    <tr v-if="form.payments && form.payments.length">
+                      <td colspan="5" class="bg-gray-50 px-2 py-2 text-left text-xs text-gray-600">
+                        <span v-for="(p, idx) in form.payments" :key="idx" class="mr-4">
+                          {{ getPaymentTypeText(p.payment_type) }}: {{ page.props.currency || '' }}{{ p.amount }}
+                        </span>
+                      </td>
+                    </tr>
                     <template v-for="(item, index) in form.items" :key="index">
-                      <tr class="text-gray-700 hover:bg-gray-50 transition">
-                        <td colspan="5" class="px-2 pt-3 pb-1">
-                          <div class="flex flex-col items-start gap-1">
-                            <span class="font-medium break-words">{{ item.product_name }}</span>
+                      <tr class="text-gray-700 transition-colors hover:bg-blue-50/50">
+                        <td class="px-2 py-2 align-middle">
+                          <div class="flex min-w-0 flex-col items-start gap-1.5">
+                            <span
+                              class="w-full break-words text-xs font-semibold leading-tight text-gray-800"
+                              :title="item.product_name"
+                            >
+                              {{ item.product_name }}
+                            </span>
                             <span
                               v-if="item.discount && item.discountApplied"
-                              class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-500 text-white w-fit"
+                              class="inline-flex max-w-full items-center gap-1 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-green-800"
                             >
                               Apply {{ item.discount.value
                               }}{{
@@ -470,17 +475,20 @@
                               }}
                               Off
                               <button
+                                type="button"
                                 @click="removeItemDiscount(index)"
-                                class="ml-1 hover:bg-green-600 rounded-full w-4 h-4 flex items-center justify-center"
+                                class="ml-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full hover:bg-green-200"
                                 title="Remove Discount"
+                                aria-label="Remove item discount"
                               >
                                 ✕
                               </button>
                             </span>
                             <button
+                              type="button"
                               v-else-if="item.discount && !item.discountApplied"
                               @click="applyItemDiscount(index)"
-                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500 hover:bg-blue-600 text-white w-fit"
+                              class="inline-flex max-w-full items-center rounded bg-blue-50 px-1.5 py-1 text-[10px] font-semibold leading-tight text-blue-700 hover:bg-blue-100"
                             >
                               Apply {{ item.discount.value
                               }}{{
@@ -490,65 +498,80 @@
                             </button>
                           </div>
                         </td>
-                      </tr>
-                      <tr class="text-gray-700 hover:bg-gray-50 transition">
-                        <td class="px-1 py-2"></td>
-                      <td class="px-2 py-3 text-right">
-                        <div class="flex flex-col items-end gap-1">
-                          <span
-                            v-if="item.discountApplied"
-                            class="line-through text-gray-500 text-xs"
-                            >({{ page.props.currency || "Rs." }})
-                            {{ (item.originalPrice||0).toFixed(2) }}</span
-                          >
-                          <input
-                            type="number"
-                            :value="item.price"
-                            @input="updatePrice(index, $event.target.value)"
-                            class="w-20 text-right font-medium bg-white text-gray-800 border border-gray-300 rounded px-1 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            min="0"
-                            step="0.01"
-                          />
-                        </div>
-                      </td>
-                      <td class="px-1 py-3 text-center">
-                        <div class="flex items-center justify-center gap-1">
+                        <td class="px-1 py-2 align-middle">
+                          <div class="flex min-w-0 flex-col items-center gap-1">
+                            <input
+                              type="number"
+                              :value="item.price"
+                              @input="updatePrice(index, $event.target.value)"
+                              class="h-11 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-1 text-center text-base font-bold text-gray-800 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              min="0"
+                              step="0.01"
+                              title="Edit item price"
+                              aria-label="Edit item price"
+                            />
+                            <span
+                              v-if="item.discountApplied"
+                              class="w-full truncate text-center text-[10px] text-gray-400 line-through"
+                              :title="`Original price: ${item.originalPrice}`"
+                            >
+                              {{ (item.originalPrice || 0).toFixed(2) }}
+                            </span>
+                          </div>
+                        </td>
+                        <td class="px-0 py-2 align-middle">
+                          <div class="flex items-center justify-center gap-0.5">
+                            <button
+                              type="button"
+                              @click="updateQuantity(index, item.quantity - 1)"
+                              class="inline-flex h-11 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg bg-blue-100 text-lg font-bold text-blue-700 transition hover:bg-blue-200 active:scale-95"
+                              title="Decrease quantity"
+                              aria-label="Decrease quantity"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="number"
+                              :value="item.quantity"
+                              @input="updateQuantityInput(index, $event.target.value)"
+                              class="cart-quantity-input h-11 w-12 shrink-0 rounded-lg border border-gray-300 bg-white px-1 text-center text-base font-bold text-gray-800 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              min="0.01"
+                              step="1"
+                              title="Edit quantity"
+                              aria-label="Edit quantity"
+                            />
+                            <button
+                              type="button"
+                              @click="updateQuantity(index, item.quantity + 1)"
+                              class="inline-flex h-11 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg bg-blue-100 text-lg font-bold text-blue-700 transition hover:bg-blue-200 active:scale-95"
+                              title="Increase quantity"
+                              aria-label="Increase quantity"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </td>
+                        <td class="px-1 py-2 text-right align-middle">
+                          <span class="block truncate text-[10px] text-gray-500">
+                            {{ page.props.currency || "Rs." }}
+                          </span>
+                          <span class="block whitespace-nowrap text-xs font-bold text-green-700">
+                            {{ ((item.price * item.quantity) || 0).toFixed(2) }}
+                          </span>
+                        </td>
+                        <td class="px-0 py-2 text-center align-middle">
                           <button
-                            @click="updateQuantity(index, item.quantity - 1)"
-                            class="w-6 h-7 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded font-bold transition"
+                            type="button"
+                            @click="removeItem(index)"
+                            class="inline-flex h-10 w-10 touch-manipulation items-center justify-center rounded-lg text-red-600 transition hover:bg-red-50 hover:text-red-700 active:scale-95"
+                            title="Remove item"
+                            aria-label="Remove item"
                           >
-                            -
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 7h16M10 11v6m4-6v6M5 7l1 14h12l1-14M9 7V4h6v3" />
+                            </svg>
                           </button>
-                          <input
-                            type="number"
-                            :value="item.quantity"
-                            @input="
-                              updateQuantityInput(index, $event.target.value)
-                            "
-                            class="cart-quantity-input w-10 text-center font-semibold bg-white text-gray-800 border border-gray-300 rounded px-1 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            min="0.01"
-                            step="1"
-                          />
-                          <button
-                            @click="updateQuantity(index, item.quantity + 1)"
-                            class="w-6 h-7 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded font-bold transition"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </td>
-                      <td class="px-1 py-3 text-right text-xs font-semibold text-green-600">
-                        ({{ page.props.currency || "Rs." }})
-                        {{ ((item.price * item.quantity)||0).toFixed(2) }}
-                      </td>
-                      <td class="px-1 py-3 text-center">
-                        <button
-                          @click="removeItem(index)"
-                          class="text-red-600 hover:text-red-700 hover:bg-red-50 rounded p-1 transition text-xl"
-                        >
-                          🗑️
-                        </button>
-                      </td>
+                        </td>
                       </tr>
                     </template>
                     <tr v-if="form.items.length === 0">
