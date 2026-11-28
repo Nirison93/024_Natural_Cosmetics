@@ -194,16 +194,16 @@
             <div class="grid grid-cols-3 gap-1">
               <label
                 class="flex min-w-0 items-center justify-center cursor-pointer rounded-[5px] px-1.5 py-1.5 text-center text-xs transition-all duration-200"
-                :class="priceType === 'purchase' ? 'bg-blue-700 text-white font-semibold' : 'bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium'"
+                :class="priceType === 'retail' ? 'bg-blue-700 text-white font-semibold' : 'bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium'"
               >
                 <input
                   type="radio"
                   v-model="priceType"
-                  value="purchase"
-                  @change="selectPriceType('purchase')"
+                  value="retail"
+                  @change="selectPriceType('retail')"
                   class="sr-only"
                 />
-                <span>Purchase Price</span>
+                <span>Retail Price</span>
               </label>
               <label
                 class="flex min-w-0 items-center justify-center cursor-pointer rounded-[5px] px-1.5 py-1.5 text-center text-xs transition-all duration-200"
@@ -220,16 +220,16 @@
               </label>
               <label
                 class="flex min-w-0 items-center justify-center cursor-pointer rounded-[5px] px-1.5 py-1.5 text-center text-xs transition-all duration-200"
-                :class="priceType === 'retail' ? 'bg-blue-700 text-white font-semibold' : 'bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium'"
+                :class="priceType === 'purchase' ? 'bg-blue-700 text-white font-semibold' : 'bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium'"
               >
                 <input
                   type="radio"
                   v-model="priceType"
-                  value="retail"
-                  @change="selectPriceType('retail')"
+                  value="purchase"
+                  @change="selectPriceType('purchase')"
                   class="sr-only"
                 />
-                <span>Retail Price</span>
+                <span>Purchase Price</span>
               </label>
             </div>
           </div>
@@ -414,11 +414,11 @@
               <div class="overflow-auto flex-1 min-h-0">
                 <table class="w-full table-fixed">
                   <colgroup>
-                    <col style="width: 22%" />
-                    <col style="width: 14%" />
-                    <col style="width: 22%" />
-                    <col style="width: 27%" />
-                    <col style="width: 15%" />
+                    <col style="width: 17%" />
+                    <col style="width: 20%" />
+                    <col style="width: 24%" />
+                    <col style="width: 26%" />
+                    <col style="width: 13%" />
                   </colgroup>
                   <thead class="border-b-2 border-blue-600">
                     <tr>
@@ -455,44 +455,44 @@
                                 </span>
                               </td>
                             </tr>
-                    <tr
-                      v-for="(item, index) in form.items"
-                      :key="index"
-                      class="text-gray-700 hover:bg-gray-50 transition"
-                    >
-                      <td class="px-2 py-3">
-                        <div class="flex flex-col gap-1">
-                          <span class="font-medium">{{ item.product_name }}</span>
-                          <span
-                            v-if="item.discount && item.discountApplied"
-                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-500 text-white w-fit"
-                          >
-                            Apply {{ item.discount.value
-                            }}{{
-                              item.discount.type === 0 ? "%" : page.props.currency || ""
-                            }}
-                            Off
-                            <button
-                              @click="removeItemDiscount(index)"
-                              class="ml-1 hover:bg-green-600 rounded-full w-4 h-4 flex items-center justify-center"
-                              title="Remove Discount"
+                    <template v-for="(item, index) in form.items" :key="index">
+                      <tr class="text-gray-700 hover:bg-gray-50 transition">
+                        <td colspan="5" class="px-2 pt-3 pb-1">
+                          <div class="flex flex-col items-start gap-1">
+                            <span class="font-medium break-words">{{ item.product_name }}</span>
+                            <span
+                              v-if="item.discount && item.discountApplied"
+                              class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-500 text-white w-fit"
                             >
-                              ✕
+                              Apply {{ item.discount.value
+                              }}{{
+                                item.discount.type === 0 ? "%" : page.props.currency || ""
+                              }}
+                              Off
+                              <button
+                                @click="removeItemDiscount(index)"
+                                class="ml-1 hover:bg-green-600 rounded-full w-4 h-4 flex items-center justify-center"
+                                title="Remove Discount"
+                              >
+                                ✕
+                              </button>
+                            </span>
+                            <button
+                              v-else-if="item.discount && !item.discountApplied"
+                              @click="applyItemDiscount(index)"
+                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500 hover:bg-blue-600 text-white w-fit"
+                            >
+                              Apply {{ item.discount.value
+                              }}{{
+                                item.discount.type === 0 ? "%" : page.props.currency || ""
+                              }}
+                              Off
                             </button>
-                          </span>
-                          <button
-                            v-else-if="item.discount && !item.discountApplied"
-                            @click="applyItemDiscount(index)"
-                            class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500 hover:bg-blue-600 text-white w-fit"
-                          >
-                            Apply {{ item.discount.value
-                            }}{{
-                              item.discount.type === 0 ? "%" : page.props.currency || ""
-                            }}
-                            Off
-                          </button>
-                        </div>
-                      </td>
+                          </div>
+                        </td>
+                      </tr>
+                      <tr class="text-gray-700 hover:bg-gray-50 transition">
+                        <td class="px-1 py-2"></td>
                       <td class="px-2 py-3 text-right">
                         <div class="flex flex-col items-end gap-1">
                           <span
@@ -505,7 +505,7 @@
                             type="number"
                             :value="item.price"
                             @input="updatePrice(index, $event.target.value)"
-                            class="w-12 text-right font-medium bg-white text-gray-800 border border-gray-300 rounded px-1 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            class="w-20 text-right font-medium bg-white text-gray-800 border border-gray-300 rounded px-1 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             min="0"
                             step="0.01"
                           />
@@ -525,7 +525,7 @@
                             @input="
                               updateQuantityInput(index, $event.target.value)
                             "
-                            class="w-10 text-center font-semibold bg-white text-gray-800 border border-gray-300 rounded px-1 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            class="cart-quantity-input w-10 text-center font-semibold bg-white text-gray-800 border border-gray-300 rounded px-1 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             min="0.01"
                             step="1"
                           />
@@ -549,7 +549,8 @@
                           🗑️
                         </button>
                       </td>
-                    </tr>
+                      </tr>
+                    </template>
                     <tr v-if="form.items.length === 0">
                       <td colspan="5" class="px-4 py-8 text-center text-gray-500">
                         No items in cart - Scan barcode or select product to add
@@ -1447,7 +1448,7 @@ const form = useForm({
   invoice_no: props.invoice_no,
   customer_id: '', // Ensure default is empty
   customer_type: "retail", // Sale customer category remains retail or wholesale
-  price_type: "purchase",
+  price_type: "retail",
   sale_date: new Date().toISOString().split("T")[0],
   items: [],
   discount: 0,
@@ -1457,7 +1458,7 @@ const form = useForm({
   quotation_id: null, // Track loaded quotation for status update
 });
 
-const priceType = ref("purchase");
+const priceType = ref("retail");
 const cartRowHeight = computed(() =>
   `${Math.min(420, Math.max(190, 130 + form.items.length * 75))}px`
 );
@@ -1986,8 +1987,8 @@ const holdBill = () => {
   form.items = [];
   form.customer_id = "";
   form.customer_type = "retail";
-  priceType.value = "purchase";
-  form.price_type = "purchase";
+  priceType.value = "retail";
+  form.price_type = "retail";
   form.discount = 0;
   form.payments = [];
   form.paid_amount = 0;
@@ -3093,6 +3094,17 @@ select.no-arrow {
 }
 select.no-arrow::-ms-expand {
   display: none;
+}
+
+.cart-quantity-input {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.cart-quantity-input::-webkit-inner-spin-button,
+.cart-quantity-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 /* ===== Modern POS Workspace Layout ===== */
