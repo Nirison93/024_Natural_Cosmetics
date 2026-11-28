@@ -22,6 +22,16 @@
             <input v-model="startDate" type="date" class="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
             <span class="text-sm text-gray-500">to</span>
             <input v-model="endDate" type="date" class="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            <select
+              v-model="priceTypeFilter"
+              class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              aria-label="Filter by price type"
+            >
+              <option value="all">All Price Types</option>
+              <option value="purchase">Purchase Price</option>
+              <option value="wholesale">Wholesale Price</option>
+              <option value="retail">Retail Price</option>
+            </select>
             <button @click="applyFilter" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
               Apply
             </button>
@@ -75,7 +85,7 @@
                   <th class="px-5 py-3">Invoice</th>
                   <th class="px-5 py-3">Date</th>
                   <th class="px-5 py-3">Customer</th>
-                  <th class="px-5 py-3">Type</th>
+                  <th class="px-5 py-3">Price Type</th>
                   <th class="px-5 py-3 text-right">Items</th>
                   <th class="px-5 py-3 text-right">Subtotal</th>
                   <th class="px-5 py-3 text-right">Discount</th>
@@ -90,7 +100,7 @@
                   <td class="px-5 py-3 font-semibold text-blue-700">{{ sale.invoice_no }}</td>
                   <td class="px-5 py-3">{{ formatDate(sale.sale_date) }}</td>
                   <td class="px-5 py-3">{{ sale.customer }}</td>
-                  <td class="px-5 py-3">{{ sale.sale_type }}</td>
+                  <td class="px-5 py-3">{{ sale.price_type }}</td>
                   <td class="px-5 py-3 text-right">{{ sale.items_sold }}</td>
                   <td class="px-5 py-3 text-right">{{ currency }} {{ sale.subtotal }}</td>
                   <td class="px-5 py-3 text-right text-orange-600">{{ currency }} {{ sale.discount }}</td>
@@ -150,6 +160,10 @@ const props = defineProps({
   profitTotal: String,
   startDate: String,
   endDate: String,
+  priceTypeFilter: {
+    type: String,
+    default: 'all',
+  },
 });
 
 const page = usePage();
@@ -157,6 +171,7 @@ const currency = page.props.currency || '';
 const { goToReportsTab } = useDashboardNavigation();
 const startDate = ref(props.startDate);
 const endDate = ref(props.endDate);
+const priceTypeFilter = ref(props.priceTypeFilter || 'all');
 const activeFilter = ref('custom');
 
 const quickFilters = [
@@ -214,6 +229,7 @@ const applyFilter = () => {
   router.get(route('reports.sales'), {
     start_date: startDate.value,
     end_date: endDate.value,
+    price_type: priceTypeFilter.value,
   }, {
     preserveState: true,
     preserveScroll: true,
