@@ -16,19 +16,19 @@
         </div>
         <!-- Action Buttons -->
         <div class="flex gap-3">
-          <button
+          <!-- <button
             @click="$inertia.visit(route('inventory.batches.index'))"
             class="px-6 py-2.5 rounded-[5px] font-medium text-sm bg-emerald-700 text-white hover:bg-emerald-800 transition-all duration-200"
           >
             📋 Batch Inventory
-          </button>
+          </button> -->
           <!-- Add GRN Button -->
-          <button
+          <!-- <button
             @click="$inertia.visit(route('good-receive-notes.create'))"
             class="px-6 py-2.5 rounded-[5px] font-medium text-sm bg-green-600 text-white hover:bg-green-700 hover:scale-105 transition-all duration-300"
           >
             📦 {{ $t('products.add_grn') }}
-          </button>
+          </button> -->
           <!-- Add New Product Button -->
           <button
             @click="openCreateModal"

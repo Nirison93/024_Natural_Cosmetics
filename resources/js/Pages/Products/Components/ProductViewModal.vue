@@ -159,6 +159,7 @@
                   <th class="px-3 py-2 text-right">Sellable Qty</th>
                   <th class="px-3 py-2 text-right">Purchase</th>
                   <th class="px-3 py-2 text-right">Selling</th>
+                  <th class="px-3 py-2 text-right">Wholesale</th>
                   <!-- <th class="px-3 py-2">Supplier</th> -->
                 </tr>
               </thead>
@@ -175,6 +176,7 @@
                   </td>
                   <td class="px-3 py-2 text-right">{{ formatPrice(batch.purchase_price) }}</td>
                   <td class="px-3 py-2 text-right">{{ formatPrice(batch.selling_price) }}</td>
+                  <td class="px-3 py-2 text-right">{{ formatPrice(batch.wholesale_price) }}</td>
                   <!-- <td class="px-3 py-2">{{ batch.supplier?.name || "N/A" }}</td> -->
                 </tr>
               </tbody>
@@ -188,10 +190,10 @@
             ⚙️ Additional Options
           </h3>
           <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <div class="rounded-lg border border-gray-200 p-3">
+            <!-- <div class="rounded-lg border border-gray-200 p-3">
               <p class="text-xs text-gray-600">Allow Returns</p>
               <p class="text-sm font-medium text-gray-800">{{ product?.return_product ? "Enabled" : "Disabled" }}</p>
-            </div>
+            </div> -->
             <div class="rounded-lg border border-gray-200 p-3">
               <p class="text-xs text-gray-600">Batch Tracking</p>
               <p class="text-sm font-medium text-gray-800">{{ product?.batch_tracking_enabled ? "Enabled" : "Disabled" }}</p>
@@ -515,6 +517,7 @@
                   <th class="px-3 py-2 text-right">Sellable Qty</th>
                   <th class="px-3 py-2 text-right">Purchase</th>
                   <th class="px-3 py-2 text-right">Selling</th>
+                  <th class="px-3 py-2 text-right">Wholesale</th>
                   <th class="px-3 py-2">Supplier</th>
                 </tr>
               </thead>
@@ -525,6 +528,7 @@
                   <td class="px-3 py-2 text-right">{{ Number(batch.available_sales_quantity || 0).toFixed(2) }}</td>
                   <td class="px-3 py-2 text-right">{{ formatPrice(batch.purchase_price) }}</td>
                   <td class="px-3 py-2 text-right">{{ formatPrice(batch.selling_price) }}</td>
+                  <td class="px-3 py-2 text-right">{{ formatPrice(batch.wholesale_price) }}</td>
                   <td class="px-3 py-2">{{ batch.supplier?.name || "N/A" }}</td>
                 </tr>
               </tbody>

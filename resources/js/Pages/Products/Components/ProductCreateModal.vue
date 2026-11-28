@@ -227,14 +227,14 @@
           </h3>
 
           <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <label :class="optionCardClass">
+            <!-- <label :class="optionCardClass">
               <input
                 v-model="form.return_product"
                 type="checkbox"
                 class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
               />
               <span class="text-sm font-medium text-gray-800">{{ $t('products.allow_returns') }}</span>
-            </label>
+            </label> -->
 
             <label :class="optionCardClass">
               <input

@@ -100,6 +100,23 @@
               {{ form.errors.selling_price }}
             </p>
           </div>
+
+          <div>
+            <label class="mb-2 block text-sm font-medium text-gray-700">
+              {{ $t('products.wholesale_price_label') }}
+            </label>
+            <input
+              v-model="form.wholesale_price"
+              type="number"
+              min="0"
+              step="0.01"
+              required
+              class="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-lg text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+            <p v-if="form.errors.wholesale_price" class="mt-1 text-sm text-red-600">
+              {{ form.errors.wholesale_price }}
+            </p>
+          </div>
         </div>
 
         <div class="flex justify-end gap-3 border-t border-gray-200 pt-4">
@@ -145,6 +162,7 @@ const form = useForm({
   quantity: "",
   purchase_price: "",
   selling_price: "",
+  wholesale_price: "",
   expiry_date: "",
 });
 
@@ -169,6 +187,7 @@ watch(
       form.batch_number = generateBatchNumber();
       form.purchase_price = props.product.purchase_price ?? "";
       form.selling_price = props.product.retail_price ?? "";
+      form.wholesale_price = props.product.wholesale_price ?? "";
     }
   }
 );

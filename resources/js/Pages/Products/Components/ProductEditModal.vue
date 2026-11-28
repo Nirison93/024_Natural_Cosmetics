@@ -326,7 +326,7 @@
             <div class="p-4 bg-white rounded-xl shadow-sm border border-gray-200">
               <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <!-- Return Product Checkbox -->
-                  <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <!-- <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
                   <input
                     v-model="form.return_product"
                     type="checkbox"
@@ -334,7 +334,7 @@
                     class="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500"
                   />
                     <span class="text-sm font-medium text-gray-700">Allow Returns</span>
-                  </label>
+                  </label> -->
                   <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
                     <input
                       v-model="form.batch_tracking_enabled"

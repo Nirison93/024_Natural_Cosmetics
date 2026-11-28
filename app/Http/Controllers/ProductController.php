@@ -461,6 +461,7 @@ class ProductController extends Controller
             'quantity' => 'required|numeric|min:0.01',
             'purchase_price' => 'required|numeric|min:0',
             'selling_price' => 'required|numeric|min:0',
+            'wholesale_price' => 'required|numeric|min:0',
             'expiry_date' => [$product->expiry_date_required ? 'required' : 'nullable', 'date'],
         ]);
 
@@ -476,7 +477,8 @@ class ProductController extends Controller
                 $validated['expiry_date'] ?? null,
                 (float) $validated['quantity'],
                 (float) $validated['purchase_price'],
-                (float) $validated['selling_price']
+                (float) $validated['selling_price'],
+                (float) $validated['wholesale_price']
             );
         });
 
@@ -590,6 +592,13 @@ class ProductController extends Controller
             $batch->available_sales_quantity = $quantity;
             $batch->received_sales_quantity = $quantity;
             $batch->quarantined_quantity = 0;
+
+            if (!$batch->exists) {
+                $batch->purchase_price = $product->purchase_price ?? 0;
+                $batch->selling_price = $product->retail_price ?? 0;
+                $batch->wholesale_price = $product->wholesale_price ?? 0;
+            }
+
             $batch->save();
         }
 

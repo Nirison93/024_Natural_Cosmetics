@@ -17,7 +17,8 @@ class BatchInventoryService
         ?string $expiryDate,
         float $quantity,
         float $purchasePrice,
-        float $sellingPrice
+        float $sellingPrice,
+        float $wholesalePrice
     ): ProductAvailableQuantity {
         $existingBatch = ProductAvailableQuantity::query()
             ->where('product_id', $product->id)
@@ -38,6 +39,7 @@ class BatchInventoryService
             'available_quantity' => 0,
             'purchase_price' => $purchasePrice,
             'selling_price' => $sellingPrice,
+            'wholesale_price' => $wholesalePrice,
             'available_sales_quantity' => $quantity,
             'received_sales_quantity' => $quantity,
             'quarantined_quantity' => 0,

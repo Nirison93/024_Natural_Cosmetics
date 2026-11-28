@@ -188,7 +188,7 @@ onMounted(() => {
             <div class="text-sm text-gray-600">{{ $t('suppliers.manage_info') }}</div>
           </Link> -->
 
-          <Link
+          <!-- <Link
             v-if="[0, 1 ,3].includes($page.props.auth.user.role)"
             :href="route('good-receive-notes.index')"
             class="group bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-xl hover:border-gray-300 hover:-translate-y-0.5 transition-all duration-300"
@@ -196,7 +196,7 @@ onMounted(() => {
             <div class="text-3xl mb-3">📦</div>
             <div class="font-semibold text-gray-900 mb-1">{{ $t('grn.title') }}</div>
             <div class="text-sm text-gray-600">{{ $t('grn.view_create') }}</div>
-          </Link>
+          </Link> -->
         </div>
       </div>
 

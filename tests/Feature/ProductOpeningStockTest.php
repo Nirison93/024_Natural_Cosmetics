@@ -24,6 +24,9 @@ class ProductOpeningStockTest extends TestCase
             $table->string('name');
             $table->string('barcode')->nullable()->unique();
             $table->decimal('shop_quantity', 15, 2)->default(0);
+            $table->decimal('purchase_price', 15, 2)->nullable();
+            $table->decimal('retail_price', 15, 2)->nullable();
+            $table->decimal('wholesale_price', 15, 2)->nullable();
             $table->boolean('return_product')->default(false);
             $table->boolean('batch_tracking_enabled')->default(false);
             $table->boolean('expiry_date_required')->default(false);
@@ -45,6 +48,7 @@ class ProductOpeningStockTest extends TestCase
             $table->decimal('quarantined_quantity', 15, 2)->default(0);
             $table->decimal('purchase_price', 15, 2)->default(0);
             $table->decimal('selling_price', 15, 2)->default(0);
+            $table->decimal('wholesale_price', 15, 2)->default(0);
             $table->decimal('quantity_in_transfer_unit', 15, 2)->default(0);
             $table->decimal('quantity_in_sales_unit', 15, 2)->default(0);
             $table->timestamps();
@@ -77,6 +81,9 @@ class ProductOpeningStockTest extends TestCase
             'quantity' => 3.5,
             'batch_number' => 'BATCH-20261128-2889',
             'expire_date' => '2027-12-31',
+            'purchase_price' => 12.5,
+            'retail_price' => 20.25,
+            'wholesale_price' => 17.5,
             'batch_tracking_enabled' => true,
             'expiry_date_required' => true,
         ]));
@@ -88,6 +95,9 @@ class ProductOpeningStockTest extends TestCase
         $this->assertSame('2027-12-31', $product->expire_date);
         $this->assertSame('BATCH-20261128-2889', $batch->batch_number);
         $this->assertSame('2027-12-31', $batch->expiry_date->format('Y-m-d'));
+        $this->assertSame('12.50', $batch->purchase_price);
+        $this->assertSame('20.25', $batch->selling_price);
+        $this->assertSame('17.50', $batch->wholesale_price);
         $this->assertSame('3.50', $batch->available_sales_quantity);
         $this->assertEquals(3.5, $product->shop_quantity);
         $this->assertFalse(Schema::hasColumn('products', 'quantity'));
@@ -244,6 +254,7 @@ class ProductOpeningStockTest extends TestCase
             'quantity' => 3.5,
             'purchase_price' => 1.25,
             'selling_price' => 2.5,
+            'wholesale_price' => 2.1,
             'expiry_date' => '2027-12-31',
         ]), $product, app(BatchInventoryService::class));
 
@@ -256,6 +267,7 @@ class ProductOpeningStockTest extends TestCase
         $this->assertSame('3.50', $batch->received_sales_quantity);
         $this->assertSame('1.25', $batch->purchase_price);
         $this->assertSame('2.50', $batch->selling_price);
+        $this->assertSame('2.10', $batch->wholesale_price);
         $this->assertSame('2027-12-31', $batch->expiry_date->format('Y-m-d'));
         $this->assertEquals(5.5, $product->shop_quantity);
         $this->assertSame(ProductMovement::TYPE_STOCK_ADJUSTMENT, ProductMovement::firstOrFail()->movement_type);
@@ -275,6 +287,7 @@ class ProductOpeningStockTest extends TestCase
             'quantity' => 2,
             'purchase_price' => 3,
             'selling_price' => 4,
+            'wholesale_price' => 3.5,
             'expiry_date' => null,
         ]), $product, app(BatchInventoryService::class));
 
