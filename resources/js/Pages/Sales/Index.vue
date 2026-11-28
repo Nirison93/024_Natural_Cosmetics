@@ -611,14 +611,37 @@
                 </div>
 
                 <div class="flex items-center justify-between gap-3">
-                  <label class="text-xs font-medium text-gray-400"
-                    >Custom Discount ({{ page.props.currency || "Rs." }})</label
-                  >
+                  <div>
+                    <label class="text-xs font-medium text-gray-400">Custom Discount</label>
+                    <div class="mt-1 flex rounded-lg border border-gray-300 overflow-hidden">
+                      <button
+                        type="button"
+                        @click="customDiscountType = 'percentage'"
+                        :class="customDiscountType === 'percentage'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white text-gray-700'"
+                        class="px-2 py-1 text-xs font-semibold"
+                      >
+                        %
+                      </button>
+                      <button
+                        type="button"
+                        @click="customDiscountType = 'fixed'"
+                        :class="customDiscountType === 'fixed'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white text-gray-700'"
+                        class="px-2 py-1 text-xs font-semibold"
+                      >
+                        {{ page.props.currency || "Rs." }}
+                      </button>
+                    </div>
+                  </div>
                   <input
                     type="number"
-                    v-model.number="form.discount"
+                    v-model.number="customDiscountValue"
                     min="0"
-                    :max="totalAmount"
+                    :max="customDiscountType === 'percentage' ? 100 : totalAmount"
+                    step="0.01"
                     class="w-[100px] px-3 py-1.5 text-black rounded-lg focus:ring-2 focus:ring-blue-500 border border-gray-300 text-right"
                     placeholder="0.00"
                   />
@@ -1475,11 +1498,16 @@ const form = useForm({
   sale_date: new Date().toISOString().split("T")[0],
   items: [],
   discount: 0,
+  custom_discount_type: 'fixed',
+  custom_discount_value: 0,
   payment_type: 0,
   paid_amount: 0,
   payments: [], // Multiple payments
   quotation_id: null, // Track loaded quotation for status update
 });
+
+const customDiscountType = ref('fixed');
+const customDiscountValue = ref(0);
 
 const priceType = ref("retail");
 const cartRowHeight = computed(() =>
@@ -1591,6 +1619,10 @@ const loadQuotationData = () => {
   priceType.value = form.customer_type;
   form.price_type = priceType.value;
   form.discount = quotation.discount || 0;
+  customDiscountType.value = 'fixed';
+  customDiscountValue.value = Number(quotation.discount || 0);
+  form.custom_discount_type = 'fixed';
+  form.custom_discount_value = Number(quotation.discount || 0);
   form.quotation_id = quotation.id; // Store quotation ID for status update when sale completes
   form.items = quotation.items.map((item) => ({
     product_id: item.product_id,
@@ -1722,6 +1754,14 @@ const totalAmount = computed(() => {
   return form.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 });
 
+const customDiscountAmount = computed(() => {
+  const value = Math.max(0, Number(customDiscountValue.value) || 0);
+  if (customDiscountType.value === 'percentage') {
+    return Math.min(totalAmount.value, totalAmount.value * (Math.min(value, 100) / 100));
+  }
+  return Math.min(totalAmount.value, value);
+});
+
 // Total product discounts applied
 const totalProductDiscount = computed(() => {
 
@@ -1737,7 +1777,7 @@ const totalProductDiscount = computed(() => {
 });
 
 const netAmount = computed(() => {
-  return totalAmount.value - form.discount;
+  return totalAmount.value - customDiscountAmount.value;
 });
 
 const totalPaid = computed(() => {
@@ -1960,6 +2000,10 @@ const clearCart = () => {
   if (confirm("Are you sure you want to clear the cart?")) {
     form.items = [];
     form.discount = 0;
+    form.custom_discount_type = 'fixed';
+    form.custom_discount_value = 0;
+    customDiscountType.value = 'fixed';
+    customDiscountValue.value = 0;
     form.payments = [];
     form.quotation_id = null; // Reset quotation reference
     barcodeField.value?.focus();
@@ -2000,7 +2044,9 @@ const holdBill = () => {
     customer_name: getCustomerName(form.customer_id) || "Walk-in",
     customer_type: form.customer_type,
     price_type: priceType.value,
-    discount: form.discount,
+    discount: customDiscountAmount.value,
+    custom_discount_type: customDiscountType.value,
+    custom_discount_value: customDiscountValue.value,
     items: JSON.parse(JSON.stringify(form.items)),
     total: form.items.reduce((sum, item) => sum + item.price * item.quantity, 0),
   });
@@ -2013,6 +2059,10 @@ const holdBill = () => {
   priceType.value = "retail";
   form.price_type = "retail";
   form.discount = 0;
+  form.custom_discount_type = 'fixed';
+  form.custom_discount_value = 0;
+  customDiscountType.value = 'fixed';
+  customDiscountValue.value = 0;
   form.payments = [];
   form.paid_amount = 0;
   form.quotation_id = null;
@@ -2033,7 +2083,11 @@ const resumeHeldBill = (bill) => {
   form.customer_type = bill.customer_type;
   priceType.value = bill.price_type || bill.customer_type || "retail";
   form.price_type = priceType.value;
-  form.discount = bill.discount;
+  customDiscountType.value = bill.custom_discount_type || 'fixed';
+  customDiscountValue.value = Number(bill.custom_discount_value ?? bill.discount ?? 0);
+  form.discount = customDiscountAmount.value;
+  form.custom_discount_type = customDiscountType.value;
+  form.custom_discount_value = customDiscountValue.value;
 
   heldBills.value = heldBills.value.filter((b) => b.id !== bill.id);
   saveHeldBillsToStorage();
@@ -2361,6 +2415,9 @@ const submitSale = () => {
     form.payments.length > 0 ? form.payments[0].payment_type : 0;
   completedPriceType.value = priceType.value;
   form.price_type = priceType.value;
+  form.discount = customDiscountAmount.value;
+  form.custom_discount_type = customDiscountType.value;
+  form.custom_discount_value = customDiscountValue.value;
   form.items = form.items.map((item) => ({
     ...item,
     original_price:
@@ -2376,7 +2433,7 @@ const submitSale = () => {
   }));
   completedTotal.value = (originalTotal.value||0).toFixed(2);
   completedProductDiscount.value = (totalProductDiscount.value||0).toFixed(2);
-  completedDiscount.value = (Number(form.discount) || 0).toFixed(2);
+  completedDiscount.value = (customDiscountAmount.value || 0).toFixed(2);
   completedNetAmount.value = (netAmount.value||0).toFixed(2);
   completedPaid.value = (totalPaid.value||0).toFixed(2);
   completedBalance.value = (balance.value||0).toFixed(2);

@@ -206,6 +206,8 @@ class SaleController extends Controller
             'items.*.original_price' => 'nullable|numeric|min:0',
             'items.*.discountApplied' => 'sometimes|boolean',
             'discount' => 'nullable|numeric|min:0',
+            'custom_discount_type' => 'nullable|in:fixed,percentage',
+            'custom_discount_value' => 'nullable|numeric|min:0',
             'payments' => 'required|array|min:1',
             'payments.*.payment_type' => 'required|in:0,1,2',
             'payments.*.amount' => 'required|numeric|min:0',
@@ -228,7 +230,16 @@ class SaleController extends Controller
                 return $item['price'] * $item['quantity'];
             });
 
-            $discount = $request->discount ?? 0;
+            $discountType = $request->input('custom_discount_type', 'fixed');
+            $discountValue = (float) $request->input(
+                'custom_discount_value',
+                $request->discount ?? 0
+            );
+
+            $discount = $discountType === 'percentage'
+                ? $totalAmount * (min($discountValue, 100) / 100)
+                : $discountValue;
+            $discount = round(max(0, min($discount, $totalAmount)), 2);
             $netAmount = $totalAmount - $discount;
 
             // Calculate total paid from all payments
