@@ -34,6 +34,7 @@
             <tr>
                 <th>Invoice No</th>
                 <th class="text-center">Income Date</th>
+                <th class="text-right">Discount</th>
                 <th class="text-right">Amount</th>
                 <th class="text-center">Type</th>
                 <th class="text-center">Payment Type</th>
@@ -44,6 +45,7 @@
                 <tr>
                     <td>{{ $income['invoice_no'] }}</td>
                     <td class="text-center">{{ $income['income_date'] }}</td>
+                    <td class="text-right">{{ $currency }} {{ $income['discount'] }}</td>
                     <td class="text-right {{ $income['is_return'] ? 'amount-return' : 'amount-income' }}">
                         {{ $currency }} {{ $income['amount'] }}
                     </td>

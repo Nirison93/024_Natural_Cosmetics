@@ -720,7 +720,7 @@ class ReportController extends Controller
         $paymentTypes = ['Cash', 'Card', 'Credit'];
 
         // Fetch all income records with sale information
-        $salesIncomeList = Income::with('sale')
+        $salesIncomeList = Income::with('sale.products')
             ->whereBetween('income_date', [$startDate, $endDate])
             ->orderBy('income_date', 'desc')
             ->orderBy('id', 'desc')
@@ -732,7 +732,8 @@ class ReportController extends Controller
                     'id' => $item->id,
                     'invoice_no' => $item->sale?->invoice_no ?? 'N/A',
                     'income_date' => $item->income_date,
-                    'amount' => number_format($item->sale?->total_amount ?? 0, 2),
+                    'amount' => number_format($item->amount ?? 0, 2),
+                    'discount' => number_format($this->getSalesIncomeDiscount($item, $isReturn), 2),
                     'type' => $type,
                     'is_return' => $isReturn,
                     'payment_type' => $item->payment_type,
@@ -778,7 +779,7 @@ class ReportController extends Controller
         $paymentTypes = ['Cash', 'Card', 'Credit'];
 
         // Fetch all income records with sale information
-        $salesIncomeList = Income::with('sale')
+        $salesIncomeList = Income::with('sale.products')
             ->whereBetween('income_date', [$startDate, $endDate])
             ->orderBy('income_date', 'desc')
             ->orderBy('id', 'desc')
@@ -790,7 +791,8 @@ class ReportController extends Controller
                     'id' => $item->id,
                     'invoice_no' => $item->sale?->invoice_no ?? 'N/A',
                     'income_date' => $item->income_date,
-                    'amount' => number_format($item->sale?->total_amount ?? 0, 2),
+                    'amount' => number_format($item->amount ?? 0, 2),
+                    'discount' => number_format($this->getSalesIncomeDiscount($item, $isReturn), 2),
                     'type' => $type,
                     'is_return' => $isReturn,
                     'payment_type' => $item->payment_type,
@@ -803,13 +805,14 @@ class ReportController extends Controller
             $handle = fopen('php://output', 'w');
 
             // CSV header
-            fputcsv($handle, ['Invoice No', 'Income Date', 'Amount', 'Type', 'Payment Type']);
+            fputcsv($handle, ['Invoice No', 'Income Date', 'Discount', 'Amount', 'Type', 'Payment Type']);
 
             // CSV rows
             foreach ($salesIncomeList as $income) {
                 fputcsv($handle, [
                     $income['invoice_no'],
                     $income['income_date'],
+                    $currency . ' ' . $income['discount'],
                     $currency . ' ' . $income['amount'],
                     $income['type'],
                     $income['payment_type_name'],
@@ -1811,8 +1814,8 @@ class ReportController extends Controller
 
         $paymentTypes = ['Cash', 'Card', 'Credit'];
 
-        // Fetch paginated income records with sale information
-        $salesIncomeList = Income::with('sale')
+        // Fetch paginated income records with sale and discount information
+        $salesIncomeList = Income::with('sale.products')
             ->whereBetween('income_date', [$startDate, $endDate])
             ->orderBy('income_date', 'desc')
             ->orderBy('id', 'desc')
@@ -1829,6 +1832,7 @@ class ReportController extends Controller
                 'invoice_no' => $item->sale?->invoice_no ?? 'N/A',
                 'income_date' => $item->income_date,
                 'amount' => number_format($item->amount ?? 0, 2),
+                'discount' => number_format($this->getSalesIncomeDiscount($item, $isReturn), 2),
                 'type' => $type,
                 'is_return' => $isReturn,
                 'payment_type' => $item->payment_type,
@@ -1861,6 +1865,19 @@ class ReportController extends Controller
             'currencySymbol' => $currencySymbol,
             'currency' => $currency,
         ]);
+    }
+
+    private function getSalesIncomeDiscount($income, $isReturn)
+    {
+        if ($isReturn || !$income->sale) {
+            return 0;
+        }
+
+        $productDiscount = $income->sale->products
+            ->where('is_return', false)
+            ->sum('product_discount_amount');
+
+        return (float) $income->sale->discount + (float) $productDiscount;
     }
 
     /**
