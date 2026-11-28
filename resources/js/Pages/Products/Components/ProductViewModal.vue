@@ -66,18 +66,105 @@
       </div>
 
       <!-- Product Image Display (if available) -->
-      <div
-        v-if="product?.image"
-        class="flex justify-center p-4 mb-4 bg-white rounded-xl shadow-sm border border-gray-200"
-      >
-        <img
-          :src="`/storage/${product.image}`"
-          :alt="product.name"
-          class="max-w-xs rounded-lg shadow-sm"
-        />
+      <div class="space-y-5 text-gray-800">
+        <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold text-blue-600">
+            📋 Basic Information
+          </h3>
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div class="rounded-lg border border-gray-200 p-3">
+              <p class="text-xs text-gray-600">Product Name</p>
+              <p class="text-sm font-medium text-gray-800">{{ product?.name || "N/A" }}</p>
+            </div>
+            <div class="rounded-lg border border-gray-200 p-3">
+              <p class="text-xs text-gray-600">Category</p>
+              <p class="text-sm font-medium text-gray-800">
+                {{
+                  product?.category?.hierarchy_string
+                    ? product.category.hierarchy_string + " → " + product.category.name
+                    : product?.category?.name || "N/A"
+                }}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold text-green-600">
+            💰 Pricing Information ({{ page.props.currency || "" }})
+          </h3>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="rounded-lg border border-gray-200 p-3">
+              <p class="text-xs text-gray-600">Purchase Price</p>
+              <p class="text-base font-bold text-green-600">{{ formatPrice(product?.purchase_price) }}</p>
+            </div>
+            <div class="rounded-lg border border-gray-200 p-3">
+              <p class="text-xs text-gray-600">Wholesale Price</p>
+              <p class="text-base font-bold text-blue-600">{{ formatPrice(product?.wholesale_price) }}</p>
+            </div>
+            <div class="rounded-lg border border-gray-200 p-3">
+              <p class="text-xs text-gray-600">Retail Price</p>
+              <p class="text-base font-bold text-amber-600">{{ formatPrice(product?.retail_price) }}</p>
+            </div>
+            <div class="rounded-lg border border-gray-200 p-3">
+              <p class="text-xs text-gray-600">Discount</p>
+              <p class="text-sm font-medium text-gray-800">
+                {{
+                  product?.discount
+                    ? `${product.discount.name} - ${product.discount.value}${product.discount.type === 0 ? "%" : page.props.currency || ""}`
+                    : "No Discount"
+                }}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold text-orange-600">
+            📦 Inventory
+          </h3>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="rounded-lg border border-gray-200 p-3">
+              <p class="text-xs text-gray-600">Quantity</p>
+              <p class="text-lg font-bold text-emerald-700">{{ Number(product?.quantity ?? 0).toFixed(2) }}</p>
+            </div>
+            <div class="rounded-lg border border-gray-200 p-3">
+              <p class="text-xs text-gray-600">Expiry Date</p>
+              <p class="text-sm font-medium text-gray-800">{{ product?.expire_date || "N/A" }}</p>
+            </div>
+            <div class="rounded-lg border border-gray-200 p-3">
+              <p class="text-xs text-gray-600">Shop Low Stock Alert</p>
+              <p class="text-sm font-medium text-gray-800">{{ displayValue(product?.shop_low_stock_margin, "Not Set") }}</p>
+            </div>
+            <div class="rounded-lg border border-gray-200 p-3">
+              <p class="text-xs text-gray-600">Barcode</p>
+              <p class="text-sm font-medium text-gray-800">{{ product?.barcode || "N/A" }}</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold text-indigo-600">
+            ⚙️ Additional Options
+          </h3>
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div class="rounded-lg border border-gray-200 p-3">
+              <p class="text-xs text-gray-600">Allow Returns</p>
+              <p class="text-sm font-medium text-gray-800">{{ product?.return_product ? "Enabled" : "Disabled" }}</p>
+            </div>
+            <div class="rounded-lg border border-gray-200 p-3">
+              <p class="text-xs text-gray-600">Batch Tracking</p>
+              <p class="text-sm font-medium text-gray-800">{{ product?.batch_tracking_enabled ? "Enabled" : "Disabled" }}</p>
+            </div>
+            <div class="rounded-lg border border-gray-200 p-3">
+              <p class="text-xs text-gray-600">Expiry Date Required</p>
+              <p class="text-sm font-medium text-gray-800">{{ product?.expiry_date_required ? "Enabled" : "Disabled" }}</p>
+            </div>
+          </div>
+        </section>
       </div>
 
-      <div class="space-y-4 text-gray-800">
+      <div v-if="false" class="space-y-4 text-gray-800">
         <!-- SECTION 1: Basic Information -->
         <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
           <h3 class="mb-3 text-lg font-semibold text-blue-600 flex items-center gap-2">
@@ -196,11 +283,22 @@
         </div>
 
         <!-- SECTION 3: Inventory & Units -->
-        <!-- <div class="bg-white rounded-xl p-4 shadow-lg border border-white/60">
+        <div class="bg-white rounded-xl p-4 shadow-lg border border-white/60">
           <h3 class="mb-3 text-lg font-semibold text-orange-600 flex items-center gap-2">
             📦 Inventory & Units
           </h3>
           <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+            <div class="p-3 bg-white rounded-lg border border-gray-200">
+              <p class="text-xs text-gray-600">Quantity</p>
+              <p class="text-lg font-bold text-emerald-700">
+                {{ Number(product?.quantity ?? 0).toFixed(2) }}
+                <span v-if="product?.sales_unit?.symbol" class="text-sm font-normal">{{ product.sales_unit.symbol }}</span>
+              </p>
+            </div>
+            <div class="p-3 bg-white rounded-lg border border-gray-200">
+              <p class="text-xs text-gray-600">Expiry Date</p>
+              <p class="text-sm font-medium text-gray-800">{{ product?.expire_date || "N/A" }}</p>
+            </div>
             <div class="p-3 bg-white rounded-lg border border-gray-200">
               <p class="text-xs text-gray-600">
                 Shop Quantity
@@ -337,7 +435,7 @@
               </p>
             </div>
           </div>
-        </div> -->
+        </div>
 
         <!-- SECTION 4: Unit Conversion Rates -->
         <!-- <div class="bg-white rounded-xl p-4 shadow-lg border border-white/60">

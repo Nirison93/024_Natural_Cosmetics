@@ -93,6 +93,9 @@
                 {{ $t('fields.qty') }}
               </th>
               <th class="px-4 py-3 text-blue-600 font-semibold text-sm text-center">
+                Expiry Date
+              </th>
+              <th class="px-4 py-3 text-blue-600 font-semibold text-sm text-center">
                 {{ $t('fields.status') }}
               </th>
               <th class="px-4 py-3 text-blue-600 font-semibold text-sm text-center">
@@ -169,6 +172,9 @@
                   </div>
                   
                   <!-- Minimum Stock Threshold -->
+                  <div class="text-xs text-gray-600">
+                    Product quantity: {{ Number(product.quantity ?? 0).toFixed(2) }}
+                  </div>
                   <div class="inline-flex items-center justify-center">
                     <span class="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-full text-xs font-semibold text-orange-700 shadow-sm">
                       <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -178,6 +184,9 @@
                     </span>
                   </div>
                 </div>
+              </td>
+              <td class="px-4 py-4 text-center text-sm text-gray-700">
+                {{ product.expire_date || "N/A" }}
               </td>
               <!-- Product Status Badge -->
               <td class="px-4 py-4 text-center">
@@ -232,7 +241,7 @@
             </tr>
             <!-- Empty State Message -->
             <tr v-if="!products.data || products.data.length === 0">
-              <td colspan="7" class="px-6 py-8 text-center text-gray-500 font-medium">
+              <td colspan="8" class="px-6 py-8 text-center text-gray-500 font-medium">
                 {{ $t('products.no_products') }}
               </td>
             </tr>

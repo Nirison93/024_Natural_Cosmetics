@@ -47,6 +47,8 @@ class Product extends Model
         'type_id',
         'discount_id',
         'tax_id',
+        'quantity',
+        'expire_date',
         'shop_quantity',
         'shop_low_stock_margin',
         'purchase_price',
@@ -77,6 +79,8 @@ class Product extends Model
     protected $casts = [
         'batch_tracking_enabled' => 'boolean',
         'expiry_date_required' => 'boolean',
+        'quantity' => 'decimal:2',
+        'expire_date' => 'date:Y-m-d',
     ];
 
     /**

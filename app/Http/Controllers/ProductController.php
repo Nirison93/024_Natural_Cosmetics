@@ -14,7 +14,9 @@ use App\Models\Unit;
 use App\Models\ActivityLog;
 use App\Models\ProductAvailableQuantity;
 use App\Models\GoodsReceivedNote;
+use App\Services\BatchInventoryService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Carbon\Carbon;
@@ -86,6 +88,8 @@ class ProductController extends Controller
             'wholesale_price',
             'retail_price',
             'market_price',
+            'quantity',
+            'expire_date',
             'shop_quantity',
             'shop_low_stock_margin',
             'purchase_unit_id',
@@ -220,6 +224,8 @@ class ProductController extends Controller
             'discount_id' => 'nullable|exists:discounts,id',
             'tax_id' => 'nullable|exists:taxes,id',
 
+            'quantity' => 'required|numeric|min:0',
+            'expire_date' => 'nullable|date',
             'shop_quantity' => 'nullable|numeric|min:0',
             'shop_low_stock_margin' => 'nullable|numeric|min:0',
 
@@ -256,7 +262,27 @@ class ProductController extends Controller
         // Auto-generate search code from category's category_code
         $validated['product_search_code'] = $this->generateProductSearchCode($validated['category_id'] ?? null);
 
-        Product::create($validated);
+        DB::transaction(function () use ($validated) {
+            $product = Product::create($validated);
+            $quantity = (float) $validated['quantity'];
+
+            if ($quantity > 0) {
+                if ($product->batch_tracking_enabled) {
+                    $product->batches()->create([
+                        'batch_number' => 'OPENING',
+                        'expiry_date' => $validated['expire_date'] ?? null,
+                        'available_sales_quantity' => $quantity,
+                        'received_sales_quantity' => $quantity,
+                        'quarantined_quantity' => 0,
+                    ]);
+
+                    app(BatchInventoryService::class)->syncSellableQuantity($product);
+                } else {
+                    $product->shop_quantity = $quantity;
+                    $product->save();
+                }
+            }
+        });
 
         return redirect()->route('products.index')
             ->with('success', 'Product created successfully.');
@@ -308,6 +334,8 @@ class ProductController extends Controller
             'type_id' => 'nullable|exists:types,id',
             'discount_id' => 'nullable|exists:discounts,id',
             'tax_id' => 'nullable|exists:taxes,id',
+            'quantity' => 'required|numeric|min:0',
+            'expire_date' => 'nullable|date',
             'shop_quantity' => 'nullable|numeric|min:0',
             'shop_low_stock_margin' => 'nullable|numeric|min:0',
 
@@ -379,6 +407,8 @@ class ProductController extends Controller
             'type_id' => 'nullable|exists:types,id',
             'discount_id' => 'nullable|exists:discounts,id',
             'tax_id' => 'nullable|exists:taxes,id',
+            'quantity' => 'required|numeric|min:0',
+            'expire_date' => 'nullable|date',
             'shop_quantity' => 'nullable|numeric|min:0',
             'shop_low_stock_margin' => 'nullable|numeric|min:0',
 
@@ -415,7 +445,27 @@ class ProductController extends Controller
         // Auto-generate search code from category's category_code
         $validated['product_search_code'] = $this->generateProductSearchCode($validated['category_id'] ?? null);
 
-        Product::create($validated);
+        DB::transaction(function () use ($validated) {
+            $product = Product::create($validated);
+            $quantity = (float) $validated['quantity'];
+
+            if ($quantity > 0) {
+                if ($product->batch_tracking_enabled) {
+                    $product->batches()->create([
+                        'batch_number' => 'OPENING',
+                        'expiry_date' => $validated['expire_date'] ?? null,
+                        'available_sales_quantity' => $quantity,
+                        'received_sales_quantity' => $quantity,
+                        'quarantined_quantity' => 0,
+                    ]);
+
+                    app(BatchInventoryService::class)->syncSellableQuantity($product);
+                } else {
+                    $product->shop_quantity = $quantity;
+                    $product->save();
+                }
+            }
+        });
 
         return redirect()->route('products.index')->with('success', 'Product duplicated successfully!');
     }
@@ -441,6 +491,18 @@ class ProductController extends Controller
                     'shop_quantity' => 'Batch-tracked products must receive their opening stock through a GRN.',
                 ]);
             }
+
+            if (
+                $tracksBatches
+                && $requiresExpiry
+                && (float) $request->input('quantity', 0) > 0
+                && !$request->filled('expire_date')
+            ) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'expire_date' => 'An expiry date is required for the opening batch.',
+                ]);
+            }
+
             return;
         }
 

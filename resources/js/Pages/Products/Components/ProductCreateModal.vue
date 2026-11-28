@@ -1,261 +1,118 @@
 <template>
   <Modal :show="open" @close="closeModal" max-width="4xl">
-    <div class="p-6 bg-gray-50">
-      <div class="flex items-center justify-between mb-6">
-        <h2
-          class="text-2xl font-bold text-blue-600"
-        >
+    <div class="max-h-[90vh] overflow-y-auto bg-gray-50 p-6">
+      <!-- Header -->
+      <div class="mb-6 flex items-center justify-between">
+        <h2 class="text-2xl font-bold text-blue-600">
           ✨ {{ $t('products.add_new_product') }}
         </h2>
         <button
           type="button"
           @click="closeModal"
-          class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-full transition-all duration-200"
+          class="rounded-full p-2 text-gray-600 transition-all duration-200 hover:bg-gray-200 hover:text-gray-800"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            class="w-6 h-6"
+            class="h-6 w-6"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
             stroke-width="2"
           >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M6 18L18 6M6 6l12 12"
-            />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
 
-      <form @submit.prevent="submit">
-        <!-- Basic Information Section -->
-        <div
-          class="mb-4 bg-white rounded-xl p-4 shadow-sm border border-gray-200"
-        >
-          <h3 class="mb-3 text-lg font-semibold text-blue-600 flex items-center gap-2">
+      <form @submit.prevent="submit" class="space-y-5">
+        <!-- ========== Basic Information ========== -->
+        <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold text-blue-600">
             📋 {{ $t('products.basic_information') }}
           </h3>
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+
+          <div class="grid grid-cols-1 gap-x-4 gap-y-4 md:grid-cols-2">
             <!-- Product Name -->
-            <div>
-              <label class="block mb-2 text-sm font-medium text-gray-700">
+            <div class="min-w-0">
+              <label :class="labelClass">
                 {{ $t('products.product_name') }} <span class="text-red-500">*</span>
               </label>
               <input
                 v-model="form.name"
                 type="text"
-                class="w-full px-3 py-2 text-sm text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                :class="inputClass"
                 :placeholder="$t('products.enter_name')"
                 required
               />
-              <span v-if="form.errors.name" class="text-sm text-red-500">{{
-                form.errors.name
-              }}</span>
+              <p v-if="form.errors.name" :class="errorClass">{{ form.errors.name }}</p>
             </div>
 
-            <!-- Barcode -->
-            <div>
-              <label class="block mb-2 text-sm font-medium text-gray-700">{{ $t('fields.barcode') }}</label>
-              <input
-                v-model="form.barcode"
-                type="text"
-                class="w-full px-3 py-2 text-sm text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                :placeholder="$t('products.enter_barcode')"
-              />
-              <span v-if="form.errors.barcode" class="text-sm text-red-500">{{
-                form.errors.barcode
-              }}</span>
-            </div>
-
-            <!-- Brand with Searchable Dropdown -->
+            <!-- Category -->
             <div class="min-w-0">
-              <label class="block mb-2 text-sm font-medium text-gray-700">{{ $t('fields.brand') }}</label>
-              <SearchableSelect
-                v-model="form.brand_id"
-                :options="brandOptions"
-                :placeholder="$t('products.search_brands')"
-                :add-button-action="openBrandModal"
-              />
-            </div>
-
-            <!-- Category with Searchable Dropdown -->
-            <div class="min-w-0">
-              <label class="block mb-2 text-sm font-medium text-gray-700">{{ $t('fields.category') }}</label>
+              <label :class="labelClass">{{ $t('fields.category') }}</label>
               <SearchableSelect
                 v-model="form.category_id"
                 :options="categoryOptions"
                 :placeholder="$t('products.search_categories')"
                 :add-button-action="openCategoryModal"
               />
-            </div>
-
-            <!-- Unit -->
-            <div class="min-w-0">
-              <label class="block mb-2 text-sm font-medium text-gray-700">Unit</label>
-              <div class="flex gap-2">
-                <select
-                  v-model="form.type_id"
-                  class="flex-1 min-w-0 px-3 py-2 text-sm text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  title="Select Unit"
-                >
-                  <option value="">{{ $t('products.select_type') }}</option>
-                  <option v-for="type in types" :key="type.id" :value="type.id">
-                    {{ type.name }}
-                  </option>
-                </select>
-                <button
-                  type="button"
-                  @click="openTypeModal"
-                  class="px-3 py-2.5 text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition duration-200 flex-shrink-0"
-                  title="Add New Type"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <!-- Status -->
-            <div>
-              <label class="block mb-2 text-sm font-medium text-gray-700">{{ $t('fields.status') }}</label>
-              <select
-                v-model="form.status"
-                class="w-full px-3 py-2 text-sm text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="1">{{ $t('fields.active') }}</option>
-                <option value="0">{{ $t('fields.inactive') }}</option>
-              </select>
+              <p v-if="form.errors.category_id" :class="errorClass">{{ form.errors.category_id }}</p>
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- Pricing Section -->
-        <div
-          class="mb-4 bg-white rounded-xl p-4 shadow-sm border border-gray-200"
-        >
-          <h3 class="mb-3 text-lg font-semibold text-green-600 flex items-center gap-2">
+        <!-- ========== Pricing ========== -->
+        <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold text-green-600">
             💰 {{ $t('products.pricing_information') }} ({{ page.props.currency || "" }})
           </h3>
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+
+          <div class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
             <!-- Purchase Price -->
-            <div>
-              <label class="block mb-2 text-sm font-medium text-gray-700"
-                >{{ $t('products.purchase_price_label') }}</label
-              >
+            <div class="min-w-0">
+              <label :class="labelClass">{{ $t('products.purchase_price_label') }}</label>
               <input
                 v-model="form.purchase_price"
                 type="number"
                 step="0.01"
                 min="0"
-
-                class="w-full px-3 py-2 text-sm text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                :class="inputClass"
                 placeholder="0.00"
               />
-              <span v-if="form.errors.purchase_price" class="text-sm text-red-500">{{ form.errors.purchase_price }}</span>
+              <p v-if="form.errors.purchase_price" :class="errorClass">{{ form.errors.purchase_price }}</p>
             </div>
 
             <!-- Wholesale Price -->
-            <div>
-              <label class="block mb-2 text-sm font-medium text-gray-700"
-                >{{ $t('products.wholesale_price_label') }}</label
-              >
+            <div class="min-w-0">
+              <label :class="labelClass">{{ $t('products.wholesale_price_label') }}</label>
               <input
                 v-model="form.wholesale_price"
                 type="number"
                 step="0.01"
-                class="w-full px-3 py-2 text-sm text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                :class="inputClass"
                 placeholder="0.00"
               />
+              <p v-if="form.errors.wholesale_price" :class="errorClass">{{ form.errors.wholesale_price }}</p>
             </div>
 
             <!-- Retail Price -->
-            <div>
-              <label class="block mb-2 text-sm font-medium text-gray-700">
-                {{ $t('products.retail_price_label') }}
-              </label>
+            <div class="min-w-0">
+              <label :class="labelClass">{{ $t('products.retail_price_label') }}</label>
               <input
                 v-model="form.retail_price"
                 type="number"
                 step="0.01"
-                class="w-full px-3 py-2 text-sm text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                :class="inputClass"
                 placeholder="0.00"
               />
+              <p v-if="form.errors.retail_price" :class="errorClass">{{ form.errors.retail_price }}</p>
             </div>
 
-
-            <div>
-              <label class="block mb-2 text-sm font-medium text-gray-700">
-                {{ $t('products.market_price_label') }}
-              </label>
-              <input
-                v-model="form.market_price"
-                type="number"
-                step="0.01"
-                class="w-full px-3 py-2 text-sm text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="0.00"
-              />
-            </div>
-
-             <!-- Tax -->
-            <div>
-              <label class="block mb-2 text-sm font-medium text-gray-700">{{ $t('fields.tax') }}</label>
-              <div class="flex gap-2">
-                <select
-                  v-model="form.tax_id"
-                  class="flex-1 px-3 py-2 text-sm text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">{{ $t('products.select_tax') }}</option>
-                  <option v-for="tax in taxes" :key="tax.id" :value="tax.id">
-                    {{ tax.name }} - {{ tax.percentage }}%
-                  </option>
-                </select>
-                <button
-                  type="button"
-                  @click="openTaxModal"
-                  class="px-3 py-2.5 text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition duration-200 flex-shrink-0"
-                  title="Add New Tax"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
             <!-- Discount -->
-            <div>
-              <label class="block mb-2 text-sm font-medium text-gray-700"
-                >{{ $t('discounts.discount_type') }}</label
-              >
+            <div class="min-w-0 sm:col-span-2 lg:col-span-1">
+              <label :class="labelClass">{{ $t('discounts.discount_type') }}</label>
               <div class="flex gap-2">
-                <select
-                  v-model="form.discount_id"
-                  class="flex-1 px-3 py-2 text-sm text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
+                <select v-model="form.discount_id" :class="[inputClass, 'min-w-0 flex-1']">
                   <option value="">{{ $t('products.select_discount') }}</option>
                   <option
                     v-for="discount in discounts"
@@ -263,212 +120,143 @@
                     :value="discount.id"
                   >
                     {{ discount.name }} -
-                      {{ discount.value }} {{ discount.type === 0 ? '%' : (page.props.currency || '') }}
+                    {{ discount.value }} {{ discount.type === 0 ? '%' : (page.props.currency || '') }}
                   </option>
                 </select>
                 <button
                   type="button"
                   @click="openDiscountModal"
-                  class="px-3 py-2.5 text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition duration-200 flex-shrink-0"
+                  class="flex h-[38px] w-[38px] flex-shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white transition duration-200 hover:bg-blue-700"
                   title="Add New Discount"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    class="w-5 h-5"
+                    class="h-5 w-5"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
                     stroke-width="2"
                   >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M12 4v16m8-8H4"
-                    />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
                   </svg>
                 </button>
               </div>
             </div>
-
-
           </div>
-        </div>
+        </section>
 
-        <!-- Inventory Section -->
-        <div
-          class="mb-4 bg-white rounded-xl p-4 shadow-sm border border-gray-200"
-        >
-          <h3 class="mb-3 text-lg font-semibold text-orange-600 flex items-center gap-2">
+        <!-- ========== Inventory ========== -->
+        <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold text-orange-600">
             📦 {{ $t('products.inventory_units') }}
           </h3>
 
-          <!-- Units Row -->
-          
-
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 mt-3">
-            <!-- Store Quantity -->
-            <!-- <div>
-              <label class="block mb-2 text-sm font-medium text-gray-700">
-                Store Quantity
-                <span v-if="form.purchase_unit_id" class="blue-600">
-                  ({{ purchaseUnitDisplayName }})
-                </span>
-              </label>
+          <div class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+            <!-- Quantity -->
+            <div class="min-w-0">
+              <label :class="labelClass">Quantity <span class="text-red-500">*</span></label>
               <input
-                v-model="form.store_quantity_in_purchase_unit"
+                v-model.number="form.quantity"
                 type="number"
-                class="w-full px-3 py-2 text-sm text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="0"
-                readonly
-                              />
-              <span class="text-xs text-gray-600">Stock quantity in main store</span>
-              <p v-if="storeQuantityAsSalesUnit" class="text-xs text-gray-300">
-                ≈ {{ storeQuantityAsSalesUnit }} (sales unit)
-              </p>
-            </div> -->
-
-            <!-- Store Low Stock Margin -->
-            <!-- <div>
-              <label class="block mb-2 text-sm font-medium text-gray-700"
-                >Store Low Stock Alert
-                <span v-if="form.purchase_unit_id" class="blue-600">
-                  ({{ purchaseUnitDisplayName }})
-                </span></label
-              >
-
-              <input
-                v-model="form.store_low_stock_margin"
-                type="number"
-                class="w-full px-3 py-2 text-sm text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="10"
-              />
-              <span class="text-xs text-gray-500">Optional - Leave blank if not needed</span>
-              <span class="text-xs text-gray-600"
-                >Alert when store stock falls below this level</span
-              >
-            </div> -->
-          </div>
-
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 mt-3">
-            <!-- Shop Quantity -->
-            <!-- <div>
-              <label class="block mb-2 text-sm font-medium text-gray-700">
-                Shop Quantity <span class="text-red-500">*</span>
-                <span v-if="form.sales_unit_id" class="green-600">
-                  ({{ getSalesUnitName(form.sales_unit_id) }})
-                </span>
-              </label>
-              <input
-                v-model="form.shop_quantity_in_sales_unit"
-                v-model="form.shop_quantity_in_sales_unit"
-                type="number"
+                min="0"
+                step="0.01"
                 required
-                class="w-full px-3 py-2 text-sm text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                :class="inputClass"
                 placeholder="0"
-                readonly
               />
-              <span class="text-xs text-gray-600">Stock quantity in shop (sales units)</span>
-            </div> -->
+              <p v-if="form.errors.quantity" :class="errorClass">{{ form.errors.quantity }}</p>
+            </div>
 
-            <!-- Shop Low Stock Margin -->
-            <div>
-              <label class="block mb-2 text-sm font-medium text-gray-700"
-                >{{ $t('products.shop_low_stock_alert') }}
+            <!-- Expiry Date -->
+            <div class="min-w-0">
+              <label :class="labelClass">Expiry Date</label>
+              <input v-model="form.expire_date" type="date" :class="inputClass" />
+              <p v-if="form.errors.expire_date" :class="errorClass">{{ form.errors.expire_date }}</p>
+            </div>
 
-                <span v-if="form.sales_unit_id" class="green-600">
+            <!-- Low Stock Alert -->
+            <div class="min-w-0">
+              <label :class="labelClass">
+                {{ $t('products.shop_low_stock_alert') }}
+                <span v-if="form.sales_unit_id" class="text-green-600">
                   ({{ getSalesUnitName(form.sales_unit_id) }})
                 </span>
               </label>
               <input
                 v-model="form.shop_low_stock_margin"
                 type="number"
-                class="w-full px-3 py-2 text-sm text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                :class="inputClass"
                 placeholder="10"
               />
-              <span class="text-xs text-gray-500">{{ $t('common.optional_blank') }}</span>
-              <span class="text-xs text-gray-600"
-                >{{ $t('products.shop_stock_alert_hint') }}</span
-              >
+              <p class="mt-1 text-xs text-gray-500">
+                {{ $t('common.optional_blank') }} · {{ $t('products.shop_stock_alert_hint') }}
+              </p>
+            </div>
+
+            <!-- Barcode -->
+            <div class="min-w-0">
+              <label :class="labelClass">{{ $t('fields.barcode') }}</label>
+              <input
+                v-model="form.barcode"
+                type="text"
+                :class="inputClass"
+                :placeholder="$t('products.enter_barcode')"
+              />
+              <p v-if="form.errors.barcode" :class="errorClass">{{ form.errors.barcode }}</p>
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- Conversion Rates Section -->
-
-        <!-- Additional Options Section -->
-        <div
-          class="mb-4 bg-white rounded-xl p-4 shadow-sm border border-gray-200"
-        >
-          <h3 class="mb-3 text-lg font-semibold text-indigo-600 flex items-center gap-2">
+        <!-- ========== Additional Options ========== -->
+        <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold text-indigo-600">
             ⚙️ {{ $t('products.additional_options') }}
           </h3>
-          <div class="space-y-3">
-            <!-- Return Product Checkbox -->
-            <div
-              class="flex items-center p-4 bg-white/50 backdrop-blur-sm rounded-xl border border-gray-300"
-            >
+
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <label :class="optionCardClass">
               <input
                 v-model="form.return_product"
                 type="checkbox"
-                id="return-product"
-                class="w-5 h-5 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
               />
-              <label for="return-product" class="ml-3 text-sm font-medium text-gray-800">
-                {{ $t('products.allow_returns') }}
-              </label>
-            </div>
+              <span class="text-sm font-medium text-gray-800">{{ $t('products.allow_returns') }}</span>
+            </label>
 
-            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <label class="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-300">
-                <input
-                  v-model="form.batch_tracking_enabled"
-                  type="checkbox"
-                  class="w-5 h-5 text-green-700 border-gray-300 rounded focus:ring-green-600"
-                />
-                <span class="text-sm font-medium text-gray-800">Enable batch tracking</span>
-              </label>
-              <label class="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-300">
-                <input
-                  v-model="form.expiry_date_required"
-                  type="checkbox"
-                  :disabled="!form.batch_tracking_enabled"
-                  class="w-5 h-5 text-green-700 border-gray-300 rounded focus:ring-green-600 disabled:opacity-50"
-                />
-                <span class="text-sm font-medium text-gray-800">Expiry date required</span>
-              </label>
-            </div>
-
-            <!-- Image Upload (Hidden) -->
-            <!-- <div>
-              <label class="block mb-2 text-sm font-medium text-gray-700"
-                >{{ $t('products.product_image_label') }}</label
-              >
+            <label :class="optionCardClass">
               <input
-                @input="form.image = $event.target.files[0]"
-                type="file"
-                accept="image/*"
-                class="w-full px-3 py-2 text-sm text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
+                v-model="form.batch_tracking_enabled"
+                type="checkbox"
+                class="h-5 w-5 rounded border-gray-300 text-green-700 focus:ring-green-600"
               />
-              <span v-if="form.errors.image" class="text-sm text-red-500">{{
-                form.errors.image
-              }}</span>
-            </div> -->
-          </div>
-        </div>
+              <span class="text-sm font-medium text-gray-800">Enable batch tracking</span>
+            </label>
 
-        <!-- Form Actions -->
-        <div class="flex justify-end pt-4 mt-4 space-x-3 border-t border-gray-300">
+            <label :class="[optionCardClass, !form.batch_tracking_enabled && 'opacity-50']">
+              <input
+                v-model="form.expiry_date_required"
+                type="checkbox"
+                :disabled="!form.batch_tracking_enabled"
+                class="h-5 w-5 rounded border-gray-300 text-green-700 focus:ring-green-600"
+              />
+              <span class="text-sm font-medium text-gray-800">Expiry date required</span>
+            </label>
+          </div>
+        </section>
+
+        <!-- ========== Actions ========== -->
+        <div class="flex justify-end gap-3 border-t border-gray-300 pt-4">
           <button
             type="button"
             @click="closeModal"
-            class="px-8 py-2.5 rounded-[5px] font-semibold text-sm bg-gray-500 text-white hover:bg-gray-600 transition-all duration-200"
+            class="rounded-[5px] bg-gray-500 px-8 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-gray-600"
           >
             {{ $t('common.cancel') }}
           </button>
           <button
             type="submit"
             :disabled="form.processing"
-            class="px-8 py-2.5 rounded-[5px] font-semibold text-sm bg-blue-600 text-white hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="rounded-[5px] bg-blue-600 px-8 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {{ form.processing ? "✨ " + $t('products.creating') : "✨ " + $t('products.create_title') }}
           </button>
@@ -476,7 +264,8 @@
       </form>
     </div>
   </Modal>
-  <!-- ADD THESE 3 QUICK ADD MODALS HERE (right after the main modal) -->
+
+  <!-- Quick Add Modals -->
   <QuickAddModal
     :show="quickAddModal.brand"
     type="brand"
@@ -500,7 +289,6 @@
     @close="quickAddModal.type = false"
     @created="(item) => handleQuickCreated('type', item)"
   />
-  <!-- Quick Add Unit Modal -->
   <QuickAddModal
     :show="quickAddModal.unit"
     type="unit"
@@ -508,7 +296,6 @@
     @close="quickAddModal.unit = false"
     @created="(item) => handleQuickCreated('unit', item)"
   />
-  <!-- Quick Add Tax Modal -->
   <QuickAddModal
     :show="quickAddModal.tax"
     type="tax"
@@ -516,7 +303,6 @@
     @close="quickAddModal.tax = false"
     @created="(item) => handleQuickCreated('tax', item)"
   />
-  <!-- Quick Add Discount Modal -->
   <QuickAddModal
     :show="quickAddModal.discount"
     type="discount"
@@ -537,6 +323,14 @@ useI18n();
 import Modal from "@/Components/Modal.vue";
 import QuickAddModal from "@/Pages/Products/Components/QuickAddModal.vue";
 import SearchableSelect from "@/Pages/Products/Components/SearchableSelect.vue";
+
+// ---- Shared style tokens (keeps every field aligned & identical) ----
+const labelClass = "mb-1.5 block text-sm font-medium text-gray-700";
+const inputClass =
+  "h-[38px] w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500";
+const errorClass = "mt-1 text-sm text-red-500";
+const optionCardClass =
+  "flex cursor-pointer items-center gap-3 rounded-xl border border-gray-300 bg-white p-4 transition hover:bg-gray-50";
 
 // Track which field opened the unit modal (purchase/sales/transfer)
 const unitTargetField = ref(null);
@@ -577,6 +371,8 @@ const form = useForm({
   discount_value: null,
   discount_type: null,
   tax_id: "",
+  quantity: 0,
+  expire_date: "",
   tax_value: null,
   tax_percentage: null,
   shop_quantity_in_sales_unit: 0,
@@ -599,73 +395,68 @@ const form = useForm({
   image: null,
 });
 
-// Helper function to get Purchase Unit name by ID
+// Helper: unit names by ID
 const getPurchaseUnitName = (unitId) => {
   if (!unitId) return "";
   const unit = props.measurementUnits.find((u) => u.id === unitId);
   return unit ? unit.name : "";
 };
 
-// Helper function to get Purchase Unit short name by ID
 const getPurchaseUnitShortName = (unitId) => {
   if (!unitId) return "";
   const unit = props.measurementUnits.find((u) => u.id === unitId);
   return unit ? unit.short_name || unit.name : "";
 };
 
-// Helper function to get Purchase Unit converted name by ID
 const getPurchaseUnitConvertedName = (unitId) => {
   if (!unitId) return "";
   const unit = props.measurementUnits.find((u) => u.id === unitId);
   return unit ? unit.name : "";
 };
 
-// Helper function to get Sales Unit name by ID
 const getSalesUnitName = (unitId) => {
   if (!unitId) return "";
   const unit = props.measurementUnits.find((u) => u.id === unitId);
   return unit ? unit.name : "";
 };
 
-// Helper function to get Transfer Unit name by ID
 const getTransferUnitName = (unitId) => {
   if (!unitId) return "";
   const unit = props.measurementUnits.find((u) => u.id === unitId);
   return unit ? unit.name : "";
 };
+
 // Convert brands to searchable format
 const brandOptions = computed(() => {
-  return props.brands.map(brand => ({
+  return props.brands.map((brand) => ({
     id: brand.id,
     label: brand.name,
-    name: brand.name
+    name: brand.name,
   }));
 });
 
 // Convert categories to searchable format
 const categoryOptions = computed(() => {
-  return props.categories.map(category => ({
+  return props.categories.map((category) => ({
     id: category.id,
     label: category.hierarchy_string
-      ? category.hierarchy_string + ' → ' + category.name
+      ? category.hierarchy_string + " → " + category.name
       : category.name,
     name: category.name,
-    hierarchy_string: category.hierarchy_string
+    hierarchy_string: category.hierarchy_string,
   }));
 });
-// Computed property for purchase unit display name
+
 const purchaseUnitDisplayName = computed(() => {
   return getPurchaseUnitName(form.purchase_unit_id);
 });
 
-// Computed property to calculate store stock in transfer units
 const calculateStoreInTransfer = computed(() => {
   const store = parseFloat(form.store_quantity_in_purchase_unit) || 0;
   const rate = parseFloat(form.purchase_to_transfer_rate) || 0;
   return (store * rate).toFixed(2);
 });
 
-// Computed property to calculate store stock in sales units
 const calculateStoreInSales = computed(() => {
   const store = parseFloat(form.store_quantity_in_purchase_unit) || 0;
   const purchaseToTransfer = parseFloat(form.purchase_to_transfer_rate) || 0;
@@ -683,7 +474,6 @@ const storeQuantityAsSalesUnit = computed(() => {
   return unit ? `${qty} ${unit}` : `${qty}`;
 });
 
-// Computed property to calculate shop stock in transfer units
 const calculateShopInTransfer = computed(() => {
   const shop = parseFloat(form.shop_quantity_in_sales_unit) || 0;
   const transferToSales = parseFloat(form.transfer_to_sales_rate) || 0;
@@ -691,7 +481,6 @@ const calculateShopInTransfer = computed(() => {
   return (shop / transferToSales).toFixed(2);
 });
 
-// Computed property to calculate shop stock in purchase units
 const calculateShopInPurchase = computed(() => {
   const shop = parseFloat(form.shop_quantity_in_sales_unit) || 0;
   const purchaseToTransfer = parseFloat(form.purchase_to_transfer_rate) || 0;
@@ -707,13 +496,12 @@ const openTypeModal = () => (quickAddModal.value.type = true);
 const openTaxModal = () => (quickAddModal.value.tax = true);
 const openDiscountModal = () => (quickAddModal.value.discount = true);
 
-// Special function for unit + buttons
 const openUnitModal = (field) => {
   unitTargetField.value = field;
   quickAddModal.value.unit = true;
 };
 
-// Handle all quick creations (brand, category, type, unit, tax, AND discount)
+// Handle all quick creations
 const handleQuickCreated = (field, newItem) => {
   if (!newItem) return;
 
@@ -759,6 +547,8 @@ const submit = () => {
     type_id: form.type_id,
     discount_id: form.discount_id,
     tax_id: form.tax_id,
+    quantity: parseFloat(form.quantity) || 0,
+    expire_date: form.expire_date || null,
     shop_quantity_in_sales_unit: parseFloat(form.shop_quantity_in_sales_unit) || 0,
     shop_low_stock_margin: parseFloat(form.shop_low_stock_margin) || 0,
 
@@ -795,7 +585,6 @@ const submit = () => {
       forceFormData: true,
       preserveScroll: true,
       onSuccess: async () => {
-        // Log product creation activity
         await logActivity("create", "products", {
           product_name: form.name,
           barcode: form.barcode || "Auto-generated",
@@ -820,116 +609,6 @@ const submit = () => {
 // expose page props for template access (currency, currencySymbol)
 const page = usePage();
 
-// Computed property to lock price fields when discount or tax is applied
-// const isPriceLocked = computed(() => {
-//   return !!form.discount_id || !!form.tax_id;
-// });
-
-// Selected discount object from discounts table
-// const selectedDiscount = computed(() => {
-//   if (!form.discount_id) return null;
-//   return props.discounts.find((d) => d.id == form.discount_id) || null;
-// });
-
-// When discount selection changes, populate discount value/type fields and calculate prices
-// watch(() => form.discount_id, (newVal) => {
-//   const d = selectedDiscount.value;
-//   if (d) {
-//     form.discount_value = d.value;
-//     form.discount_type = d.type;
-//   } else {
-//     form.discount_value = null;
-//     form.discount_type = null;
-//   }
-//   calculatePrices();
-// });
-
-// Selected tax object from taxes table
-// const selectedTax = computed(() => {
-//   if (!form.tax_id) return null;
-//   return props.taxes.find((t) => t.id == form.tax_id) || null;
-// });
-
-// Store original prices before any calculations
-// const originalWholesalePrice = ref(null);
-// const originalRetailPrice = ref(null);
-
-// Watch for manual changes to price inputs to update original prices
-// watch(() => form.wholesale_price, (newVal) => {
-//     if (!form.discount_id && !form.tax_id) {
-//         originalWholesalePrice.value = parseFloat(newVal) || 0;
-//     }
-// });
-
-// watch(() => form.retail_price, (newVal) => {
-//     if (!form.discount_id && !form.tax_id) {
-//         originalRetailPrice.value = parseFloat(newVal) || 0;
-//     }
-// });
-
-
-// When tax selection changes, update prices
-// watch(() => form.tax_id, (newVal) => {
-//   const t = selectedTax.value;
-//   if (t) {
-//     form.tax_value = t.percentage;
-//     form.tax_percentage = t.percentage;
-//   } else {
-//     form.tax_value = null;
-//     form.tax_percentage = null;
-//   }
-//   calculatePrices();
-// });
-
-// Central function to calculate prices based on discount and tax
-// const calculatePrices = () => {
-//   const discount = selectedDiscount.value;
-//   const tax = selectedTax.value;
-
-//   // Capture original prices if they haven't been set yet
-//   if (originalWholesalePrice.value === null && form.wholesale_price) {
-//     originalWholesalePrice.value = parseFloat(form.wholesale_price) || 0;
-//   }
-//   if (originalRetailPrice.value === null && form.retail_price) {
-//     originalRetailPrice.value = parseFloat(form.retail_price) || 0;
-//   }
-
-//   let wholesale = originalWholesalePrice.value || 0;
-//   let retail = originalRetailPrice.value || 0;
-
-//   // Apply discount first
-//   if (discount) {
-//     if (discount.type === 0) { // Percentage
-//       wholesale -= wholesale * (discount.value / 100);
-//       retail -= retail * (discount.value / 100);
-//     } else { // Fixed amount
-//       wholesale -= discount.value;
-//       retail -= discount.value;
-//     }
-//   }
-
-//   // Apply tax on the discounted price
-//   if (tax) {
-//     wholesale += wholesale * (tax.percentage / 100);
-//     retail += retail * (tax.percentage / 100);
-//   }
-
-//   // Update form values
-//   // Only update if there is a discount or tax, otherwise keep user's input
-//   if (discount || tax) {
-//       form.wholesale_price = wholesale > 0 ? wholesale.toFixed(2) : "0.00";
-//       form.retail_price = retail > 0 ? retail.toFixed(2) : "0.00";
-//   } else {
-//       // If no discount or tax, restore original prices
-//       if (originalWholesalePrice.value !== null) {
-//           form.wholesale_price = originalWholesalePrice.value.toFixed(2);
-//       }
-//       if (originalRetailPrice.value !== null) {
-//           form.retail_price = originalRetailPrice.value.toFixed(2);
-//       }
-//   }
-// };
-
 /**
  * Fetch purchase price from goods_received_notes_products table
  * based on product_id and batch_number
@@ -941,11 +620,11 @@ const fetchPurchasePriceByBatch = async (productId, batchNumber) => {
   }
 
   try {
-    const response = await fetch('/products/pricing-by-batch', {
-      method: 'POST',
+    const response = await fetch("/products/pricing-by-batch", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content,
       },
       body: JSON.stringify({
         product_id: productId,
@@ -964,24 +643,27 @@ const fetchPurchasePriceByBatch = async (productId, batchNumber) => {
       form.purchase_price = 0;
     }
   } catch (error) {
-    console.error('Error fetching purchase price:', error);
+    console.error("Error fetching purchase price:", error);
     form.purchase_price = 0;
   }
 };
 
 // Watch for modal open and fetch purchase price if product has batch
-const watchOpen = watch(() => props.open, (newVal) => {
-  if (newVal && props.selectedProduct && props.selectedProduct.current_batch) {
-    fetchPurchasePriceByBatch(props.selectedProduct.id, props.selectedProduct.current_batch.batch_number);
+const watchOpen = watch(
+  () => props.open,
+  (newVal) => {
+    if (newVal && props.selectedProduct && props.selectedProduct.current_batch) {
+      fetchPurchasePriceByBatch(
+        props.selectedProduct.id,
+        props.selectedProduct.current_batch.batch_number
+      );
+    }
   }
-});
+);
 
 const closeModal = () => {
   emit("update:open", false);
   form.reset();
   form.clearErrors();
-  // Reset original prices on close
-  // originalWholesalePrice.value = null;
-  // originalRetailPrice.value = null;
 };
 </script>
