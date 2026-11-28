@@ -138,7 +138,7 @@ onMounted(() => {
             <div class="text-sm text-gray-600">{{ $t('products.create_manage') }}</div>
           </Link>
 
-          <Link
+          <!-- <Link
             v-if="[0, 1].includes($page.props.auth.user.role)"
             :href="route('brands.index')"
             class="group bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-xl hover:border-gray-300 hover:-translate-y-0.5 transition-all duration-300"
@@ -146,7 +146,7 @@ onMounted(() => {
             <div class="text-3xl mb-3">⭐</div>
             <div class="font-semibold text-gray-900 mb-1">{{ $t('brands.title') }}</div>
             <div class="text-sm text-gray-600">{{ $t('brands.manage_product_brands') }}</div>
-          </Link>
+          </Link> -->
 
           <Link
             v-if="[0, 1, 3].includes($page.props.auth.user.role)"
@@ -158,7 +158,7 @@ onMounted(() => {
             <div class="text-sm text-gray-600">{{ $t('categories.organize') }}</div>
           </Link>
 
-          <Link
+          <!-- <Link
             v-if="[0, 1, 3].includes($page.props.auth.user.role)"
             :href="route('types.index')"
             class="group bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-xl hover:border-gray-300 hover:-translate-y-0.5 transition-all duration-300"
@@ -166,7 +166,7 @@ onMounted(() => {
             <div class="text-3xl mb-3">🧩</div>
             <div class="font-semibold text-gray-900 mb-1">{{ $t('types.title') }}</div>
             <div class="text-sm text-gray-600">{{ $t('types.manage_product_types') }}</div>
-          </Link>
+          </Link> -->
 
           <Link
             v-if="[0, 1].includes($page.props.auth.user.role)"
@@ -178,7 +178,7 @@ onMounted(() => {
             <div class="text-sm text-gray-600">{{ $t('units.manage') }}</div>
           </Link>
 
-          <Link
+          <!-- <Link
             v-if="[0, 1 ,3].includes($page.props.auth.user.role)"
             :href="route('suppliers.index')"
             class="group bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-xl hover:border-gray-300 hover:-translate-y-0.5 transition-all duration-300"
@@ -186,7 +186,7 @@ onMounted(() => {
             <div class="text-3xl mb-3">🚚</div>
             <div class="font-semibold text-gray-900 mb-1">{{ $t('suppliers.title') }}</div>
             <div class="text-sm text-gray-600">{{ $t('suppliers.manage_info') }}</div>
-          </Link>
+          </Link> -->
 
           <Link
             v-if="[0, 1 ,3].includes($page.props.auth.user.role)"
@@ -229,7 +229,7 @@ onMounted(() => {
             <div class="text-sm text-gray-600">{{ $t('discounts.manage') }}</div>
           </Link>
 
-          <Link
+          <!-- <Link
             v-if="[0, 1, 3].includes($page.props.auth.user.role)"
             :href="route('taxes.index')"
             class="group bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-xl hover:border-gray-300 hover:-translate-y-0.5 transition-all duration-300"
@@ -237,9 +237,9 @@ onMounted(() => {
             <div class="text-3xl mb-3">📊</div>
             <div class="font-semibold text-gray-900 mb-1">{{ $t('taxes.title') }}</div>
             <div class="text-sm text-gray-600">{{ $t('taxes.manage') }}</div>
-          </Link>
+          </Link> -->
 
-          <Link
+          <!-- <Link
             v-if="[0, 1, 2].includes($page.props.auth.user.role)"
             :href="route('sales.index')"
             class="group bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-xl hover:border-gray-300 hover:-translate-y-0.5 transition-all duration-300"
@@ -247,9 +247,9 @@ onMounted(() => {
             <div class="text-3xl mb-3">💳</div>
             <div class="font-semibold text-gray-900 mb-1">{{ $t('sales.title') }}</div>
             <div class="text-sm text-gray-600">{{ $t('sales.manage') }}</div>
-          </Link>
+          </Link> -->
 
-          <Link
+          <!-- <Link
             v-if="[0, 1, 2].includes($page.props.auth.user.role)"
             :href="route().has('sales.all') ? route('sales.all') : route('sales.index')"
             class="group bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-xl hover:border-gray-300 hover:-translate-y-0.5 transition-all duration-300"
@@ -257,9 +257,9 @@ onMounted(() => {
             <div class="text-3xl mb-3">📜</div>
             <div class="font-semibold text-gray-900 mb-1">{{ $t('sales.history') }}</div>
             <div class="text-sm text-gray-600">{{ $t('sales.view_all') }}</div>
-          </Link>
+          </Link> -->
 
-          <Link
+          <!-- <Link
             v-if="[0, 1, 3].includes($page.props.auth.user.role)"
             :href="route('quotations.index')"
             class="group bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-xl hover:border-gray-300 hover:-translate-y-0.5 transition-all duration-300"
@@ -267,9 +267,9 @@ onMounted(() => {
             <div class="text-3xl mb-3">📄</div>
             <div class="font-semibold text-gray-900 mb-1">{{ $t('quotations.title') }}</div>
             <div class="text-sm text-gray-600">{{ $t('quotations.manage') }}</div>
-          </Link>
+          </Link> -->
 
-          <Link
+          <!-- <Link
             v-if="[0, 1, 3].includes($page.props.auth.user.role)"
             :href="route('quotation.edit')"
             class="group bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-xl hover:border-gray-300 hover:-translate-y-0.5 transition-all duration-300"
@@ -277,9 +277,9 @@ onMounted(() => {
             <div class="text-3xl mb-3">✏️</div>
             <div class="font-semibold text-gray-900 mb-1">{{ $t('quotations.edit') }}</div>
             <div class="text-sm text-gray-600">{{ $t('quotations.update') }}</div>
-          </Link>
+          </Link> -->
 
-          <a
+          <!-- <a
             v-if="[0, 1].includes($page.props.auth.user.role)"
             href="/stock-transfer-returns"
             class="group bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-xl hover:border-gray-300 hover:-translate-y-0.5 transition-all duration-300 block"
@@ -287,7 +287,7 @@ onMounted(() => {
             <div class="text-3xl mb-3">🔄</div>
             <div class="font-semibold text-gray-900 mb-1">{{ $t('sales.transfer_returns') }}</div>
             <div class="text-sm text-gray-600">{{ $t('sales.manage_transfer_returns') }}</div>
-          </a>
+          </a> -->
 
           <Link
             v-if="[0, 1, 2, 3].includes($page.props.auth.user.role)"
@@ -298,7 +298,7 @@ onMounted(() => {
             <div class="font-semibold text-gray-900 mb-1">{{ $t('sales.returns') }}</div>
             <div class="text-sm text-gray-600">{{ $t('sales.manage_returns') }}</div>
           </Link>
-
+<!-- 
           <Link
             v-if="[0, 1].includes($page.props.auth.user.role)"
             :href="route('reports.expenses')"
@@ -307,7 +307,7 @@ onMounted(() => {
             <div class="text-3xl mb-3">💸</div>
             <div class="font-semibold text-gray-900 mb-1">{{ $t('sales.supplier_payments') }}</div>
             <div class="text-sm text-gray-600">{{ $t('sales.payment_summary') }}</div>
-          </Link>
+          </Link> -->
         </div>
       </div>
 
@@ -411,7 +411,7 @@ onMounted(() => {
             <div class="text-sm text-gray-600">{{ $t('reports.activity_log_desc') }}</div>
           </Link> -->
 
-          <Link
+          <!-- <Link
             v-if="[0].includes($page.props.auth.user.role)"
             :href="route('reports.sync')"
             class="group bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-xl hover:border-gray-300 hover:-translate-y-0.5 transition-all duration-300"
@@ -419,7 +419,7 @@ onMounted(() => {
             <div class="text-3xl mb-3">🔄</div>
             <div class="font-semibold text-gray-900 mb-1">{{ $t('reports.sync_report') }}</div>
             <div class="text-sm text-gray-600">{{ $t('reports.sync_report_desc') }}</div>
-          </Link>
+          </Link> -->
         </div>
       </div>
 
@@ -441,14 +441,14 @@ onMounted(() => {
             <div class="text-sm text-gray-600">{{ $t('settings.app_settings_configure') }}</div>
           </Link>
 
-          <Link
+          <!-- <Link
             :href="route('settings.sync')"
             class="group bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-xl hover:border-gray-300 hover:-translate-y-0.5 transition-all duration-300"
           >
             <div class="text-3xl mb-3">🔄</div>
             <div class="font-semibold text-gray-900 mb-1">{{ $t('settings.sync_settings') }}</div>
             <div class="text-sm text-gray-600">{{ $t('settings.sync_settings_desc') }}</div>
-          </Link>
+          </Link> -->
 
           <!-- <Link
             v-if="![1].includes($page.props.auth.user.role)"
@@ -469,14 +469,14 @@ onMounted(() => {
             <div class="text-sm text-gray-600">{{ $t('settings.bill_settings_desc') }}</div>
           </Link>
 
-          <Link
+          <!-- <Link
             :href="route('import-export')"
             class="group bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-xl hover:border-gray-300 hover:-translate-y-0.5 transition-all duration-300"
           >
             <div class="text-3xl mb-3">📁</div>
             <div class="font-semibold text-gray-900 mb-1">{{ $t('settings.import_export') }}</div>
             <div class="text-sm text-gray-600">{{ $t('settings.import_export_desc') }}</div>
-          </Link>
+          </Link> -->
         </div>
       </div>
     </div>
