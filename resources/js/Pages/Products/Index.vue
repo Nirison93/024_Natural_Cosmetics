@@ -86,7 +86,7 @@
               <th class="px-4 py-3 text-blue-600 font-semibold text-sm">{{ $t('fields.number') }}</th>
               <th class="px-4 py-3 text-blue-600 font-semibold text-sm">{{ $t('products.product_info') }}</th>
               <th class="px-4 py-3 text-blue-600 font-semibold text-sm">
-                {{ $t('fields.brand') }}/{{ $t('fields.category') }}
+                {{ $t('fields.category') }}
               </th>
               <th class="px-4 py-3 text-blue-600 font-semibold text-sm text-right">
                 {{ $t('fields.price') }} ({{ currencySymbol.currency }})
@@ -94,12 +94,12 @@
               <th class="px-4 py-3 text-blue-600 font-semibold text-sm text-center">
                 {{ $t('fields.qty') }}
               </th>
-              <th class="px-4 py-3 text-blue-600 font-semibold text-sm text-center">
+              <!-- <th class="px-4 py-3 text-blue-600 font-semibold text-sm text-center">
                 Expiry Date
-              </th>
-              <th class="px-4 py-3 text-blue-600 font-semibold text-sm text-center">
+              </th> -->
+              <!-- <th class="px-4 py-3 text-blue-600 font-semibold text-sm text-center">
                 {{ $t('fields.status') }}
-              </th>
+              </th> -->
               <th class="px-4 py-3 text-blue-600 font-semibold text-sm text-center">
                 {{ $t('common.actions') }}
               </th>
@@ -133,9 +133,9 @@
               <!-- Brand & Category -->
               <td class="px-4 py-4">
                 <div class="space-y-1">
-                  <div class="text-sm text-gray-800">
+                  <!-- <div class="text-sm text-gray-800">
                     {{ product.brand?.name || "N/A" }}
-                  </div>
+                  </div> -->
                   <div class="text-xs text-gray-600">
                     {{
                       product?.category?.hierarchy_string
@@ -168,15 +168,12 @@
                       <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M10.894 2.553a.889.889 0 00-1.788 0l-.412 2.463H6.781a.889.889 0 000 1.778h2.354l-1.06 6.36H5.228a.889.889 0 000 1.778h2.073l-.412 2.463a.889.889 0 101.788 0l.412-2.463h3.812l-.412 2.463a.889.889 0 101.788 0l.412-2.463h2.073a.889.889 0 100-1.778h-2.354l1.06-6.36h2.354a.889.889 0 100-1.778h-2.073l.412-2.463a.889.889 0 10-1.788 0l-.412 2.463h-3.812l.412-2.463zm1.06 7.138l1.06-6.36H9.894l-1.06 6.36h3.12z"/>
                       </svg>
-                      <span>{{ Number(product.shop_quantity || 0).toFixed(0) }}</span>
-                      <span class="text-xs font-normal opacity-75">{{ product.sales_unit?.symbol || 'Unit' }}</span>
+                      <span>{{ Number(product.quantity ?? 0).toFixed(2) }}</span>
+                    
                     </span>
                   </div>
                   
-                  <!-- Minimum Stock Threshold -->
-                  <div class="text-xs text-gray-600">
-                    Product quantity: {{ Number(product.quantity ?? 0).toFixed(2) }}
-                  </div>
+                 
                   <div class="inline-flex items-center justify-center">
                     <span class="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-full text-xs font-semibold text-orange-700 shadow-sm">
                       <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -187,11 +184,11 @@
                   </div>
                 </div>
               </td>
-              <td class="px-4 py-4 text-center text-sm text-gray-700">
+              <!-- <td class="px-4 py-4 text-center text-sm text-gray-700">
                 {{ product.expire_date || "N/A" }}
-              </td>
+              </td> -->
               <!-- Product Status Badge -->
-              <td class="px-4 py-4 text-center">
+              <!-- <td class="px-4 py-4 text-center">
                 <span
                   :class="{
                     'bg-red-500/90 text-white px-4 py-1.5 rounded-[5px] font-medium text-xs':
@@ -210,7 +207,7 @@
                       : $t('fields.status')
                   }}
                 </span>
-              </td>
+              </td> -->
               <!-- Action Buttons -->
               <td class="px-4 py-4">
                 <div class="flex flex-wrap gap-2 justify-center">
