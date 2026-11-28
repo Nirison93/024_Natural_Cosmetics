@@ -191,42 +191,45 @@
             <label class="block text-xs font-semibold text-gray-700 mb-1"
               >💰 Price Type</label
             >
-            <div class="flex gap-2">
+            <div class="grid grid-cols-3 gap-1">
               <label
-                class="flex-1 flex items-center justify-center gap-2 cursor-pointer px-3 py-1.5 rounded-[5px] transition-all duration-200 text-sm"
-                :class="
-                  form.customer_type === 'retail'
-                    ? 'bg-blue-700 text-white font-semibold'
-                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium'
-                "
+                class="flex min-w-0 items-center justify-center cursor-pointer rounded-[5px] px-1.5 py-1.5 text-center text-xs transition-all duration-200"
+                :class="priceType === 'purchase' ? 'bg-blue-700 text-white font-semibold' : 'bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium'"
               >
                 <input
                   type="radio"
-                  v-model="form.customer_type"
-                  value="retail"
-                  @change="updateCartPrices"
+                  v-model="priceType"
+                  value="purchase"
+                  @change="selectPriceType('purchase')"
                   class="sr-only"
                 />
-                <span>🛒</span>
-                <span>Retail</span>
+                <span>Purchase Price</span>
               </label>
               <label
-                class="flex-1 flex items-center justify-center gap-2 cursor-pointer px-3 py-1.5 rounded-[5px] transition-all duration-200 text-sm"
-                :class="
-                  form.customer_type === 'wholesale'
-                    ? 'bg-blue-700 text-white font-semibold'
-                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium'
-                "
+                class="flex min-w-0 items-center justify-center cursor-pointer rounded-[5px] px-1.5 py-1.5 text-center text-xs transition-all duration-200"
+                :class="priceType === 'wholesale' ? 'bg-blue-700 text-white font-semibold' : 'bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium'"
               >
                 <input
                   type="radio"
-                  v-model="form.customer_type"
+                  v-model="priceType"
                   value="wholesale"
-                  @change="updateCartPrices"
+                  @change="selectPriceType('wholesale')"
                   class="sr-only"
                 />
-                <span>🏢</span>
-                <span>Wholesale</span>
+                <span>Wholesale Price</span>
+              </label>
+              <label
+                class="flex min-w-0 items-center justify-center cursor-pointer rounded-[5px] px-1.5 py-1.5 text-center text-xs transition-all duration-200"
+                :class="priceType === 'retail' ? 'bg-blue-700 text-white font-semibold' : 'bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium'"
+              >
+                <input
+                  type="radio"
+                  v-model="priceType"
+                  value="retail"
+                  @change="selectPriceType('retail')"
+                  class="sr-only"
+                />
+                <span>Retail Price</span>
               </label>
             </div>
           </div>
@@ -267,7 +270,10 @@
         </div>
 
         <!-- Modern POS Workspace: Categories | Product Grid + Cart | Order Summary -->
-        <div class="pos-main-grid flex-1 min-h-0">
+        <div
+          class="pos-main-grid flex-1 min-h-0"
+          :style="{ '--cart-row-height': cartRowHeight }"
+        >
           <!-- LEFT: Category Sidebar -->
           <div class="category-sidebar-card bg-white rounded-xl shadow-md border border-gray-200 p-3 flex flex-col">
             <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide px-1 mb-2 flex-shrink-0">
@@ -406,29 +412,36 @@
                 </div>
               </div>
               <div class="overflow-auto flex-1 min-h-0">
-                <table class="w-full">
+                <table class="w-full table-fixed">
+                  <colgroup>
+                    <col style="width: 22%" />
+                    <col style="width: 14%" />
+                    <col style="width: 22%" />
+                    <col style="width: 27%" />
+                    <col style="width: 15%" />
+                  </colgroup>
                   <thead class="border-b-2 border-blue-600">
                     <tr>
-                      <th class="px-4 py-3 text-left text-sm font-semibold text-blue-700">
+                      <th class="px-1 py-3 text-left text-xs font-semibold text-blue-700">
                         Product
                       </th>
                       <th
-                        class="px-4 py-3 text-right text-sm font-semibold text-blue-700"
+                        class="px-1 py-3 text-right text-xs font-semibold text-blue-700"
                       >
                         Price
                       </th>
                       <th
-                        class="px-4 py-3 text-center text-sm font-semibold text-blue-700"
+                        class="px-1 py-3 text-center text-xs font-semibold text-blue-700"
                       >
                         Qty
                       </th>
                       <th
-                        class="px-4 py-3 text-right text-sm font-semibold text-blue-700"
+                        class="px-1 py-3 text-right text-xs font-semibold text-blue-700"
                       >
                         Total
                       </th>
                       <th
-                        class="px-4 py-3 text-center text-sm font-semibold text-blue-700"
+                        class="px-1 py-3 text-center text-xs font-semibold text-blue-700"
                       >
                         Action
                       </th>
@@ -447,7 +460,7 @@
                       :key="index"
                       class="text-gray-700 hover:bg-gray-50 transition"
                     >
-                      <td class="px-4 py-3">
+                      <td class="px-2 py-3">
                         <div class="flex flex-col gap-1">
                           <span class="font-medium">{{ item.product_name }}</span>
                           <span
@@ -480,7 +493,7 @@
                           </button>
                         </div>
                       </td>
-                      <td class="px-4 py-3 text-right">
+                      <td class="px-2 py-3 text-right">
                         <div class="flex flex-col items-end gap-1">
                           <span
                             v-if="item.discountApplied"
@@ -492,17 +505,17 @@
                             type="number"
                             :value="item.price"
                             @input="updatePrice(index, $event.target.value)"
-                            class="w-24 text-right font-medium bg-white text-gray-800 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            class="w-12 text-right font-medium bg-white text-gray-800 border border-gray-300 rounded px-1 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             min="0"
                             step="0.01"
                           />
                         </div>
                       </td>
-                      <td class="px-4 py-3 text-center">
-                        <div class="flex items-center justify-center gap-2">
+                      <td class="px-1 py-3 text-center">
+                        <div class="flex items-center justify-center gap-1">
                           <button
-                            @click="updateQuantity(index, item.quantity - 0.5)"
-                            class="w-7 h-7 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded font-bold transition"
+                            @click="updateQuantity(index, item.quantity - 1)"
+                            class="w-6 h-7 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded font-bold transition"
                           >
                             -
                           </button>
@@ -512,23 +525,23 @@
                             @input="
                               updateQuantityInput(index, $event.target.value)
                             "
-                            class="w-16 text-center font-semibold bg-white text-gray-800 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            class="w-10 text-center font-semibold bg-white text-gray-800 border border-gray-300 rounded px-1 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             min="0.01"
-                            step="0.01"
+                            step="1"
                           />
                           <button
-                            @click="updateQuantity(index, item.quantity + 0.5)"
-                            class="w-7 h-7 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded font-bold transition"
+                            @click="updateQuantity(index, item.quantity + 1)"
+                            class="w-6 h-7 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded font-bold transition"
                           >
                             +
                           </button>
                         </div>
                       </td>
-                      <td class="px-4 py-3 text-right font-semibold text-green-600">
+                      <td class="px-1 py-3 text-right text-xs font-semibold text-green-600">
                         ({{ page.props.currency || "Rs." }})
                         {{ ((item.price * item.quantity)||0).toFixed(2) }}
                       </td>
-                      <td class="px-4 py-3 text-center">
+                      <td class="px-1 py-3 text-center">
                         <button
                           @click="removeItem(index)"
                           class="text-red-600 hover:text-red-700 hover:bg-red-50 rounded p-1 transition text-xl"
@@ -1433,7 +1446,8 @@ const getCustomerName = (customerId) => {
 const form = useForm({
   invoice_no: props.invoice_no,
   customer_id: '', // Ensure default is empty
-  customer_type: "retail", // retail or wholesale
+  customer_type: "retail", // Sale customer category remains retail or wholesale
+  price_type: "purchase",
   sale_date: new Date().toISOString().split("T")[0],
   items: [],
   discount: 0,
@@ -1442,6 +1456,11 @@ const form = useForm({
   payments: [], // Multiple payments
   quotation_id: null, // Track loaded quotation for status update
 });
+
+const priceType = ref("purchase");
+const cartRowHeight = computed(() =>
+  `${Math.min(420, Math.max(190, 130 + form.items.length * 75))}px`
+);
 
 const selectedProduct = ref(null);
 const selectedQuantity = ref(1);
@@ -1463,6 +1482,7 @@ const completedInvoice = ref("");
 const completedSaleDate = ref("");
 const completedCustomer = ref("");
 const completedPaymentType = ref(0);
+const completedPriceType = ref("retail");
 const completedItems = ref([]);
 const completedTotal = ref("0.00");
 const completedProductDiscount = ref("0.00");
@@ -1544,6 +1564,8 @@ const loadQuotationData = () => {
   // Load quotation data into form
   form.customer_id = quotation.customer_id || "";
   form.customer_type = quotation.customer_type || "retail";
+  priceType.value = form.customer_type;
+  form.price_type = priceType.value;
   form.discount = quotation.discount || 0;
   form.quotation_id = quotation.id; // Store quotation ID for status update when sale completes
   form.items = quotation.items.map((item) => ({
@@ -1739,11 +1761,30 @@ const getPaymentTypeText = (type) => {
   return types[type] || "Cash";
 };
 
-// Get current price based on customer type
+// Get the selected product price for the cart
 const getCurrentPrice = (product) => {
-  return form.customer_type === "wholesale"
-    ? product.wholesale_price
-    : product.retail_price;
+  const priceField = {
+    purchase: "purchase_price",
+    wholesale: "wholesale_price",
+    retail: "retail_price",
+  }[priceType.value];
+
+  return product[priceField] ?? 0;
+};
+
+const getPriceTypeLabel = (type) => ({
+  purchase: "Purchase Price",
+  wholesale: "Wholesale Price",
+  retail: "Retail Price",
+}[type] || "Retail Price");
+
+const selectPriceType = (type) => {
+  priceType.value = type;
+  form.price_type = type;
+  if (type !== "purchase") {
+    form.customer_type = type;
+  }
+  updateCartPrices();
 };
 
 // Add product by barcode
@@ -1860,11 +1901,7 @@ const removeItemDiscount = (index) => {
   const item = form.items[index];
   if (!item.discountApplied) return;
 
-  item.price =
-    item.price_type === 'wholesale'
-      ? item.wholesale_price
-      : item.originalPrice;
-
+  item.price = item.originalPrice;
   item.discountApplied = false;
 };
 
@@ -1938,6 +1975,7 @@ const holdBill = () => {
     customer_id: form.customer_id,
     customer_name: getCustomerName(form.customer_id) || "Walk-in",
     customer_type: form.customer_type,
+    price_type: priceType.value,
     discount: form.discount,
     items: JSON.parse(JSON.stringify(form.items)),
     total: form.items.reduce((sum, item) => sum + item.price * item.quantity, 0),
@@ -1948,6 +1986,8 @@ const holdBill = () => {
   form.items = [];
   form.customer_id = "";
   form.customer_type = "retail";
+  priceType.value = "purchase";
+  form.price_type = "purchase";
   form.discount = 0;
   form.payments = [];
   form.paid_amount = 0;
@@ -1967,6 +2007,8 @@ const resumeHeldBill = (bill) => {
   form.items = JSON.parse(JSON.stringify(bill.items));
   form.customer_id = bill.customer_id;
   form.customer_type = bill.customer_type;
+  priceType.value = bill.price_type || bill.customer_type || "retail";
+  form.price_type = priceType.value;
   form.discount = bill.discount;
 
   heldBills.value = heldBills.value.filter((b) => b.id !== bill.id);
@@ -2248,7 +2290,17 @@ const updateCartPrices = () => {
   form.items.forEach((item) => {
     const product = props.products.find((p) => p.id === item.product_id);
     if (product) {
-      item.price = parseFloat(getCurrentPrice(product));
+      const selectedPrice = parseFloat(getCurrentPrice(product)) || 0;
+
+      if (item.discountApplied && item.discount) {
+        item.originalPrice = selectedPrice;
+        item.price =
+          item.discount.type === 0
+            ? Math.max(0, selectedPrice - selectedPrice * (item.discount.value / 100))
+            : Math.max(0, selectedPrice - item.discount.value);
+      } else {
+        item.price = selectedPrice;
+      }
     }
   });
 };
@@ -2283,7 +2335,21 @@ const submitSale = () => {
     props.customers.find((c) => c.id === form.customer_id)?.name || "";
   completedPaymentType.value =
     form.payments.length > 0 ? form.payments[0].payment_type : 0;
-  completedItems.value = [...form.items];
+  completedPriceType.value = priceType.value;
+  form.price_type = priceType.value;
+  form.items = form.items.map((item) => ({
+    ...item,
+    original_price:
+      item.discountApplied && item.originalPrice != null
+        ? item.originalPrice
+        : item.price,
+  }));
+  completedItems.value = form.items.map((item) => ({
+    ...item,
+    product_discount_amount: item.discountApplied
+      ? Math.max(0, (Number(item.original_price) - Number(item.price)) * Number(item.quantity))
+      : 0,
+  }));
   completedTotal.value = (originalTotal.value||0).toFixed(2);
   completedProductDiscount.value = (totalProductDiscount.value||0).toFixed(2);
   completedDiscount.value = (Number(form.discount) || 0).toFixed(2);
@@ -2311,16 +2377,20 @@ const submitSale = () => {
       );
 
       if (shouldAutoPrint) {
+        let receiptOpened = false;
         try {
-          printReceipt();
+          receiptOpened = printReceipt();
         } catch (e) {
           console.error("Auto print failed:", e);
         }
 
-        // Small delay to allow print dialog to open before navigating away
-        setTimeout(() => {
-          router.visit(route("sales.index"));
-        }, 800);
+        if (receiptOpened) {
+          setTimeout(() => {
+            router.visit(route("sales.index"));
+          }, 800);
+        } else {
+          showSuccessModal.value = true;
+        }
       } else {
         // Show confirmation modal when auto-print is disabled
         showSuccessModal.value = true;
@@ -2358,7 +2428,7 @@ const printReceipt = () => {
 
   if (!printWindow) {
     alert("Please allow pop-ups to print receipt");
-    return;
+    return false;
   }
 
   const receiptContent = `
@@ -2570,6 +2640,10 @@ const printReceipt = () => {
                         <span>${completedCustomer.value}</span>
                     </div>
                     <div class="info-row">
+                        <span><strong>Price Type:</strong></span>
+                        <span>${getPriceTypeLabel(completedPriceType.value)}</span>
+                    </div>
+                    <div class="info-row">
                         <span><strong>Payment Method:</strong></span>
                         <span>${getPaymentTypeText(completedPaymentType.value)}</span>
                     </div>
@@ -2588,22 +2662,29 @@ const printReceipt = () => {
                     </thead>
                     <tbody>
                         ${completedItems.value
-                          .map(
-                            (item) => `
+                          .map((item) => {
+                            const quantity = Number(item.quantity) || 0;
+                            const unitPrice = Number(item.original_price ?? item.price) || 0;
+                            const productDiscount = Number(item.product_discount_amount) || 0;
+                            const lineTotal = (Number(item.price) || 0) * quantity;
+                            return `
                             <tr class="item-name-row">
-                                <td colspan="5">${item.product_name}</td>
+                                <td colspan="4">${item.product_name}</td>
                             </tr>
                             <tr class="item-data-row">
                                 <td></td>
-                                <td class="item-price">${(item.market_price||0).toFixed(2)}</td>
+                                <td class="item-price">${unitPrice.toFixed(2)}</td>
                                
-                                <td class="item-price">${item.quantity}</td>
-                                <td class="item-total">${(
-                                  (item.price||0) * item.quantity
-                                ).toFixed(2)}</td>
+                                <td class="item-price">${quantity}</td>
+                                <td class="item-total">${lineTotal.toFixed(2)}</td>
                             </tr>
-                        `
-                          )
+                            ${
+                              productDiscount > 0
+                                ? `<tr class="item-data-row"><td colspan="4" style="text-align:right;">Product Discount: - ${page.props.currency || "Rs."} ${productDiscount.toFixed(2)}</td></tr>`
+                                : ""
+                            }
+                        `;
+                          })
                           .join("")}
                     </tbody>
                 </table>
@@ -2718,11 +2799,6 @@ const printReceipt = () => {
                     }, 200);
                 }
 
-                setTimeout(function() {
-                    if (!window.closed) {
-                        window.close();
-                    }
-                }, 5000);
             <\/script>
         </body>
         </html>
@@ -2730,6 +2806,7 @@ const printReceipt = () => {
 
   printWindow.document.write(receiptContent);
   printWindow.document.close();
+  return true;
 };
 
 // Close modal and reload
@@ -2741,7 +2818,7 @@ const closeModal = () => {
 // Print from success modal then close and redirect
 const printAndClose = () => {
   try {
-    printReceipt();
+    if (!printReceipt()) return;
   } catch (e) {
     console.error("Print failed:", e);
   }
@@ -3025,7 +3102,7 @@ select.no-arrow::-ms-expand {
 .pos-main-grid {
   display: grid;
   grid-template-columns: 200px minmax(0, 1fr) 520px;
-  grid-template-rows: minmax(340px, 420px) minmax(0, 1fr);
+  grid-template-rows: var(--cart-row-height, 420px) minmax(0, 1fr);
   gap: 1rem;
   align-items: stretch;
   min-height: 0;
