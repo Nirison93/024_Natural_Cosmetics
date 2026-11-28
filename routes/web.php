@@ -171,6 +171,7 @@ Route::middleware(['auth', 'role:0,1,3'])->group(function () {
     Route::get('/products/fifo-price/{productId}', [ProductController::class, 'getFifoPricingInfo'])->name('products.fifo-price');
     Route::post('/products/pricing-by-batch', [ProductController::class, 'getPricingInfoByBatch'])->name('products.pricing-by-batch');
     Route::post('products/{product}/duplicate', [ProductController::class, 'duplicate'])->name('products.duplicate');
+    Route::post('products/{product}/stock-update', [ProductController::class, 'stockUpdate'])->name('products.stock-update');
     Route::post('products/log-activity', [ProductController::class, 'logActivity'])->name('products.log-activity');
 
     // Product resource routes

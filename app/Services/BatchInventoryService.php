@@ -11,6 +11,62 @@ use Illuminate\Validation\ValidationException;
 
 class BatchInventoryService
 {
+    public function receiveManual(
+        Product $product,
+        string $batchNumber,
+        ?string $expiryDate,
+        float $quantity,
+        float $purchasePrice,
+        float $sellingPrice
+    ): ProductAvailableQuantity {
+        $existingBatch = ProductAvailableQuantity::query()
+            ->where('product_id', $product->id)
+            ->where('batch_number', $batchNumber)
+            ->lockForUpdate()
+            ->exists();
+
+        if ($existingBatch) {
+            throw ValidationException::withMessages([
+                'batch_number' => 'This batch number already exists for the selected product. Please try again.',
+            ]);
+        }
+
+        $batch = ProductAvailableQuantity::create([
+            'product_id' => $product->id,
+            'batch_number' => $batchNumber,
+            'expiry_date' => $expiryDate,
+            'available_quantity' => 0,
+            'purchase_price' => $purchasePrice,
+            'selling_price' => $sellingPrice,
+            'available_sales_quantity' => $quantity,
+            'received_sales_quantity' => $quantity,
+            'quarantined_quantity' => 0,
+            'quantity_in_transfer_unit' => 0,
+            'quantity_in_sales_unit' => 0,
+        ]);
+
+        $this->recordBatchMovement(
+            $product,
+            $batch,
+            ProductMovement::TYPE_STOCK_ADJUSTMENT,
+            $quantity,
+            'STOCK-UPDATE-' . $batchNumber,
+            ProductAvailableQuantity::class,
+            $batch->id,
+            0,
+            $quantity,
+            'manual_stock_update'
+        );
+
+        if ($product->batch_tracking_enabled) {
+            $this->syncSellableQuantity($product);
+        } else {
+            $product->increment('shop_quantity', $quantity);
+        }
+
+        return $batch;
+    }
+
     public function receive(
         Product $product,
         string $batchNumber,

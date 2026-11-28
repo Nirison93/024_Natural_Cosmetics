@@ -454,6 +454,35 @@ class ProductController extends Controller
         return redirect()->route('products.index')->with('success', 'Product duplicated successfully!');
     }
 
+    public function stockUpdate(Request $request, Product $product, BatchInventoryService $batchInventory)
+    {
+        $validated = $request->validate([
+            'batch_number' => ['required', 'string', 'regex:/^BATCH-\d{8}-\d{4}$/'],
+            'quantity' => 'required|numeric|min:0.01',
+            'purchase_price' => 'required|numeric|min:0',
+            'selling_price' => 'required|numeric|min:0',
+            'expiry_date' => [$product->expiry_date_required ? 'required' : 'nullable', 'date'],
+        ]);
+
+        DB::transaction(function () use ($product, $validated, $batchInventory) {
+            $lockedProduct = Product::query()
+                ->whereKey($product->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $batchInventory->receiveManual(
+                $lockedProduct,
+                $validated['batch_number'],
+                $validated['expiry_date'] ?? null,
+                (float) $validated['quantity'],
+                (float) $validated['purchase_price'],
+                (float) $validated['selling_price']
+            );
+        });
+
+        return back()->with('success', 'Stock updated successfully.');
+    }
+
     private function validateBatchSettings(Request $request, ?Product $product): void
     {
         $tracksBatches = $request->has('batch_tracking_enabled')

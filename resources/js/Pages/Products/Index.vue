@@ -213,7 +213,7 @@
               </td>
               <!-- Action Buttons -->
               <td class="px-4 py-4">
-                <div class="flex gap-2 justify-center">
+                <div class="flex flex-wrap gap-2 justify-center">
                   <button
                     @click="openViewModal(product)"
                     class="px-4 py-2 text-xs font-medium text-white bg-green-600 rounded-[5px] hover:bg-green-700 hover:scale-105 transition-all duration-300"
@@ -237,6 +237,12 @@
                     class="px-4 py-2 text-xs font-medium text-white bg-purple-600 rounded-[5px] hover:bg-purple-700 hover:scale-105 transition-all duration-300"
                   >
                     {{ $t('common.duplicate') }}
+                  </button>
+                  <button
+                    @click="openStockUpdateModal(product)"
+                    class="px-4 py-2 text-xs font-medium text-white bg-emerald-600 rounded-[5px] hover:bg-emerald-700 hover:scale-105 transition-all duration-300"
+                  >
+                    {{ $t('products.stock_update') }}
                   </button>
                 </div>
               </td>
@@ -328,6 +334,10 @@
       :discounts="discounts"
       :taxes="taxes"
     />
+    <ProductStockUpdateModal
+      v-model:open="isStockUpdateModalOpen"
+      :product="selectedProductForStockUpdate"
+    />
   </AppLayout>
 </template>
 
@@ -349,6 +359,7 @@ import ProductCreateModal from "./Components/ProductCreateModal.vue";
 import ProductViewModal from "./Components/ProductViewModal.vue";
 import ProductEditModal from "./Components/ProductEditModal.vue";
 import ProductDuplicateModal from "./Components/ProductDuplicateModal.vue";
+import ProductStockUpdateModal from "./Components/ProductStockUpdateModal.vue";
 
 /**
  * Component Props
@@ -412,9 +423,11 @@ const isCreateModalOpen = ref(false);
 const isViewModalOpen = ref(false);
 const isEditModalOpen = ref(false);
 const isDuplicateModalOpen = ref(false);
+const isStockUpdateModalOpen = ref(false);
 const selectedProduct = ref(null);
 const selectedProductForView = ref(null);
 const selectedProductForDuplicate = ref(null);
+const selectedProductForStockUpdate = ref(null);
 const search = ref(props.filters?.search || "");
 let searchDebounceTimer = null;
 
@@ -509,5 +522,10 @@ const openDuplicateModal = (product) => {
   }
   selectedProductForDuplicate.value = { ...product };
   isDuplicateModalOpen.value = true;
+};
+
+const openStockUpdateModal = (product) => {
+  selectedProductForStockUpdate.value = product;
+  isStockUpdateModalOpen.value = true;
 };
 </script>
