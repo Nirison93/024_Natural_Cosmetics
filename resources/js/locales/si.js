@@ -484,6 +484,7 @@ export default {
     current_password: 'වත්මන් මුරපදය',
     new_password: 'නව මුරපදය',
     confirm_password: 'මුරපදය තහවුරු කරන්න',
+    password_change_hint: 'ඔබගේ වත්මන් මුරපදය ඇතුළත් කර නව මුරපදයක් තෝරන්න.',
     save_profile: 'පැතිකඩ සුරකින්න',
     profile_updated: 'පැතිකඩ සාර්ථකව යාවත්කාලීන කරා.',
     password_updated: 'මුරපදය සාර්ථකව යාවත්කාලීන කරා.',

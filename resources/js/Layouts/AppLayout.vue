@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, onMounted, watchEffect } from "vue";
-import { usePage } from "@inertiajs/vue3";
+import { useForm, usePage } from "@inertiajs/vue3";
 import ResponsiveNavLink from "@/Components/ResponsiveNavLink.vue";
 import LanguageSwitcher from "@/Components/LanguageSwitcher.vue";
 import Modal from "@/Components/Modal.vue";
@@ -12,11 +12,45 @@ defineProps({
   title: String,
 });
 
-useI18n();
+const { t } = useI18n();
 const showingNavigationDropdown = ref(false);
 const isDarkMode = ref(false);
 const { goToShopsTab } = useDashboardNavigation();
 const showShortcutsModal = ref(false);
+const showProfileModal = ref(false);
+const currentPasswordInput = ref(null);
+const newPasswordInput = ref(null);
+const passwordForm = useForm({
+  current_password: "",
+  password: "",
+  password_confirmation: "",
+});
+
+const closeProfileModal = () => {
+  showProfileModal.value = false;
+  passwordForm.reset();
+  passwordForm.clearErrors();
+};
+
+const updatePassword = () => {
+  passwordForm.put(route("password.update"), {
+    preserveScroll: true,
+    onSuccess: () => {
+      closeProfileModal();
+      showToast("success", t("profile.password_updated"));
+    },
+    onError: () => {
+      if (passwordForm.errors.password) {
+        passwordForm.reset("password", "password_confirmation");
+        newPasswordInput.value?.focus();
+      }
+      if (passwordForm.errors.current_password) {
+        passwordForm.reset("current_password");
+        currentPasswordInput.value?.focus();
+      }
+    },
+  });
+};
 
 const applyTheme = (enabled) => {
   document.documentElement.classList.toggle("dark", enabled);
@@ -164,8 +198,13 @@ onMounted(() => {
               </button>
 
               <!-- User Profile Display -->
-              <div
-                class="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-gray-200 bg-gradient-to-r from-white to-gray-50 shadow-sm dark:border-gray-600 dark:from-gray-800 dark:to-gray-700"
+              <button
+                type="button"
+                @click="showProfileModal = true"
+                aria-haspopup="dialog"
+                :aria-expanded="showProfileModal"
+                :aria-label="t('profile.title')"
+                class="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-gray-200 bg-gradient-to-r from-white to-gray-50 shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:from-gray-800 dark:to-gray-700"
               >
                 <div
                   class="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold text-xs shadow-md"
@@ -178,7 +217,7 @@ onMounted(() => {
                   </span>
                   <span class="text-[10px] text-gray-500 dark:text-gray-300 leading-tight">{{ $t('nav.logged_in') }}</span>
                 </div>
-              </div>
+              </button>
 
               <!-- POS Button -->
               <Link
@@ -318,6 +357,117 @@ onMounted(() => {
         </div>
       </footer>
     </div>
+
+    <!-- User Profile and Password Modal -->
+    <Modal
+      :show="showProfileModal"
+      @close="closeProfileModal"
+      max-width="md"
+      :static-backdrop="false"
+      aria-labelledby="profile-modal-title"
+    >
+      <div class="p-6 bg-white dark:bg-gray-800">
+        <div class="flex items-start justify-between mb-5">
+          <div>
+            <h2 id="profile-modal-title" class="text-lg font-bold text-gray-900 dark:text-white">
+              {{ $t('profile.title') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {{ $page.props.auth.user.name }} · {{ $page.props.auth.user.email }}
+            </p>
+          </div>
+          <button
+            type="button"
+            @click="closeProfileModal"
+            :aria-label="$t('common.close')"
+            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
+          <h3 class="text-base font-semibold text-gray-900 dark:text-white">
+            {{ $t('profile.update_password') }}
+          </h3>
+          <p class="mt-1 mb-4 text-sm text-gray-500 dark:text-gray-400">
+            {{ $t('profile.password_change_hint') }}
+          </p>
+
+          <form @submit.prevent="updatePassword" class="space-y-4">
+            <div>
+              <label for="profile-current-password" class="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-200">
+                {{ $t('profile.current_password') }}
+              </label>
+              <input
+                id="profile-current-password"
+                ref="currentPasswordInput"
+                v-model="passwordForm.current_password"
+                type="password"
+                autocomplete="current-password"
+                required
+                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              />
+              <p v-if="passwordForm.errors.current_password" class="mt-1 text-sm text-red-600">
+                {{ passwordForm.errors.current_password }}
+              </p>
+            </div>
+
+            <div>
+              <label for="profile-new-password" class="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-200">
+                {{ $t('profile.new_password') }}
+              </label>
+              <input
+                id="profile-new-password"
+                ref="newPasswordInput"
+                v-model="passwordForm.password"
+                type="password"
+                autocomplete="new-password"
+                required
+                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              />
+              <p v-if="passwordForm.errors.password" class="mt-1 text-sm text-red-600">
+                {{ passwordForm.errors.password }}
+              </p>
+            </div>
+
+            <div>
+              <label for="profile-password-confirmation" class="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-200">
+                {{ $t('profile.confirm_password') }}
+              </label>
+              <input
+                id="profile-password-confirmation"
+                v-model="passwordForm.password_confirmation"
+                type="password"
+                autocomplete="new-password"
+                required
+                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              />
+              <p v-if="passwordForm.errors.password_confirmation" class="mt-1 text-sm text-red-600">
+                {{ passwordForm.errors.password_confirmation }}
+              </p>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                @click="closeProfileModal"
+                class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+              >
+                {{ $t('common.cancel') }}
+              </button>
+              <button
+                type="submit"
+                :disabled="passwordForm.processing"
+                class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {{ passwordForm.processing ? $t('common.loading') : $t('common.save_changes') }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Modal>
 
     <!-- Keyboard Shortcuts Modal -->
     <Modal :show="showShortcutsModal" @close="showShortcutsModal = false" max-width="sm">

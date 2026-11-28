@@ -39,16 +39,31 @@ const submit = () => {
 
     <div class="login-root">
       <main class="login-shell">
-        <aside class="brand-panel" aria-hidden="true">
-          <div class="brand-panel-glow" />
-          <svg class="botanical-art" viewBox="0 0 360 420" fill="none">
-            <path class="botanical-stem" d="M171 396c18-85 21-168 11-261m3 141c34-61 66-106 112-144m-120 200c-39-55-77-88-124-112" />
-            <path class="botanical-leaf" d="M185 215c-46-9-66-36-63-75 41 2 65 27 63 75Zm0 36c5-48 30-73 71-74 0 40-25 67-71 74Zm-7 45c-42-9-61-32-59-67 38 1 60 24 59 67Zm7 22c5-43 27-66 64-67 0 37-22 61-64 67ZM94 252c-34-21-43-48-28-79 32 14 43 41 28 79Zm169-106c-5-39 11-63 47-73 9 35-7 61-47 73Z" />
-            <path class="botanical-vein" d="M127 144c18 20 34 43 49 69m18 34c20-27 43-51 67-71M119 229c20 17 38 37 56 60m11 27c17-17 36-32 58-45M72 173c7 26 15 50 23 72m191-164c-8 22-18 44-31 65" />
-          </svg>
-          <div class="brand-panel-footer">
-            <span />
-            <p>{{ $t('auth.point_of_sale') }}</p>
+        <aside class="brand-panel">
+          <img
+            src="/images/lg_img_001.jpg"
+            alt=""
+            class="brand-image"
+            fetchpriority="high"
+          />
+          <div class="brand-panel-overlay" />
+          <div class="brand-panel-content">
+            <div class="brand-badge">
+              <span />
+              {{ $t('auth.point_of_sale') }}
+            </div>
+            <div class="brand-intro">
+              <p class="brand-eyebrow">{{ $t('auth.point_of_sale') }}</p>
+              <h1 class="brand-title">
+                {{ $t('auth.hero_title_1') }}
+                <span>{{ $t('auth.hero_title_2') }} {{ $t('auth.hero_title_em') }}</span>
+              </h1>
+              <p class="brand-description">{{ $t('auth.hero_sub') }}</p>
+            </div>
+            <div class="brand-panel-footer">
+              <span />
+              <p>Online මුදලාලි</p>
+            </div>
           </div>
         </aside>
 
@@ -58,16 +73,7 @@ const submit = () => {
 
           <!-- Logo -->
           <div class="logo-row">
-            <div class="logo-icon">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M20 4c-8 0-14 3.5-14 9.5A5.5 5.5 0 0011.5 19C17.5 19 20 12.5 20 4ZM5 20c3-4.5 6.5-7.5 11-10" />
-              </svg>
-            </div>
-            <div>
-              <p class="logo-name">Online මුදලාලි</p>
-              <p class="logo-sub">{{ $t('auth.point_of_sale') }}</p>
-            </div>
+            <img src="/images/login_logo.webp" alt="Online මුදලාලි" class="business-logo" />
             <!-- Language toggle on login page -->
             <button
               @click="toggleLanguage"
@@ -82,8 +88,6 @@ const submit = () => {
           </div>
 
           <!-- Heading -->
-          <h2 class="form-title">{{ $t('auth.welcome_back') }}</h2>
-          <p class="form-sub">{{ $t('auth.sign_in_subtitle') }}</p>
 
           <!-- Status -->
           <div v-if="status" class="status-msg">
@@ -618,5 +622,353 @@ const submit = () => {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+.login-root {
+  position: fixed;
+  inset: 0;
+  width: auto;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  padding: clamp(12px, 2.2vw, 30px);
+  background: #f3f4ed;
+}
+
+.login-shell {
+  width: min(100%, 1240px);
+  height: 100%;
+  min-height: 0;
+  max-height: 860px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.96fr);
+  border-color: rgba(54, 72, 51, 0.1);
+  border-radius: 26px;
+  box-shadow: 0 28px 80px -38px rgba(37, 49, 35, 0.35), 0 8px 26px rgba(37, 49, 35, 0.06);
+}
+
+.brand-panel {
+  min-height: 0;
+  padding: clamp(24px, 4vw, 54px);
+  background: #314936;
+}
+
+.brand-panel::before,
+.brand-panel::after {
+  display: none;
+}
+
+.brand-image,
+.brand-panel-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.brand-image {
+  object-fit: cover;
+  object-position: center;
+}
+
+.brand-panel-overlay {
+  background:
+    linear-gradient(180deg, rgba(20, 33, 23, 0.08) 8%, rgba(20, 33, 23, 0.78) 100%),
+    linear-gradient(90deg, rgba(20, 33, 23, 0.28), transparent 78%);
+}
+
+.brand-panel-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.brand-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  align-self: flex-start;
+  padding: 9px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  backdrop-filter: blur(10px);
+}
+
+.brand-badge span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #c9dfa8;
+  box-shadow: 0 0 12px rgba(201, 223, 168, 0.8);
+}
+
+.brand-intro {
+  max-width: 470px;
+  margin-top: auto;
+  padding: 42px 0 28px;
+}
+
+.brand-eyebrow {
+  margin-bottom: 12px;
+  color: #d3e2be;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.brand-title {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(34px, 4vw, 56px);
+  font-weight: 700;
+  letter-spacing: -0.055em;
+  line-height: 1.08;
+}
+
+.brand-title span {
+  color: #d5e5bb;
+}
+
+.brand-description {
+  max-width: 410px;
+  margin-top: 16px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.brand-panel-footer {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.brand-panel-footer span {
+  width: 24px;
+  background: #d5e5bb;
+}
+
+.center-wrap {
+  min-width: 0;
+  overflow: hidden;
+  padding: clamp(24px, 4.5vw, 62px);
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(226, 231, 210, 0.34), transparent 42%),
+    #fffefa;
+}
+
+.form-card {
+  max-width: 410px;
+  padding: 18px 0;
+}
+
+.logo-row {
+  margin-bottom: clamp(24px, 4vh, 38px);
+}
+
+.form-sub {
+  margin-bottom: 24px;
+}
+
+.login-form {
+  gap: 17px;
+}
+
+.copyright {
+  margin-top: 24px;
+}
+
+@media (max-width: 760px) {
+  .login-root {
+    padding: 0;
+  }
+
+  .login-shell {
+    width: 100%;
+    max-height: none;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: clamp(112px, 21svh, 164px) minmax(0, 1fr);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .brand-panel {
+    padding: 18px 24px;
+  }
+
+  .brand-panel-overlay {
+    background: linear-gradient(90deg, rgba(20, 33, 23, 0.7), rgba(20, 33, 23, 0.25));
+  }
+
+  .brand-panel-content {
+    justify-content: center;
+  }
+
+  .brand-badge,
+  .brand-eyebrow,
+  .brand-description,
+  .brand-panel-footer {
+    display: none;
+  }
+
+  .brand-intro {
+    margin: 0;
+    padding: 0;
+  }
+
+  .brand-title {
+    max-width: 460px;
+    font-size: clamp(24px, 5vw, 34px);
+  }
+
+  .center-wrap {
+    padding: 18px 32px;
+  }
+
+  .form-card {
+    padding: 8px 0;
+  }
+
+  .logo-row {
+    margin-bottom: 22px;
+  }
+
+  .form-sub {
+    margin-bottom: 20px;
+  }
+
+  .login-form {
+    gap: 14px;
+  }
+
+  .field-input {
+    height: 48px;
+  }
+
+  .copyright {
+    margin-top: 18px;
+  }
+}
+
+@media (max-width: 420px) {
+  .center-wrap {
+    padding: 14px 22px;
+  }
+
+  .brand-title {
+    font-size: 24px;
+  }
+
+  .logo-row {
+    margin-bottom: 18px;
+  }
+
+  .form-title {
+    font-size: 23px;
+  }
+
+  .form-sub {
+    margin-bottom: 16px;
+  }
+
+  .login-form {
+    gap: 12px;
+  }
+
+  .field-input {
+    height: 46px;
+  }
+
+  .submit-btn {
+    height: 48px;
+  }
+}
+
+@media (max-height: 680px) {
+  .center-wrap {
+    padding-top: 18px;
+    padding-bottom: 18px;
+  }
+
+  .logo-row {
+    margin-bottom: 18px;
+  }
+
+  .form-sub {
+    margin-bottom: 16px;
+  }
+
+  .login-form {
+    gap: 12px;
+  }
+
+  .field-input {
+    height: 46px;
+  }
+
+  .copyright {
+    margin-top: 14px;
+  }
+}
+
+@media (max-height: 560px) {
+  .brand-description,
+  .copyright {
+    display: none;
+  }
+
+  .brand-intro {
+    padding-bottom: 0;
+  }
+}
+
+@media (max-width: 760px) and (max-height: 620px) {
+  .login-shell {
+    grid-template-rows: clamp(82px, 17svh, 108px) minmax(0, 1fr);
+  }
+
+  .center-wrap {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .logo-row {
+    margin-bottom: 12px;
+  }
+
+  .form-sub {
+    margin-bottom: 12px;
+  }
+
+  .copyright {
+    display: none;
+  }
+}
+
+.business-logo {
+  display: block;
+      width: 220px;
+    height: 140px;
+  flex: 0 0 auto;
+  object-fit: contain;
 }
 </style>

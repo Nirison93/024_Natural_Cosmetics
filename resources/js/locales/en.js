@@ -484,6 +484,7 @@ export default {
     current_password: 'Current Password',
     new_password: 'New Password',
     confirm_password: 'Confirm Password',
+    password_change_hint: 'Enter your current password and choose a new one.',
     save_profile: 'Save Profile',
     profile_updated: 'Profile updated successfully.',
     password_updated: 'Password updated successfully.',
