@@ -165,19 +165,19 @@
 
 
             <!-- App Logo Upload Field with Preview -->
-            <div class="md:col-span-2">
+            <!-- <div class="md:col-span-2">
               <label class="block mb-2 text-sm font-semibold text-gray-700">
                 {{ $t('settings.app_logo') }}
               </label>
               <div class="flex items-center gap-4">
-                <!-- File Input for Logo Upload -->
+
                 <input
                   type="file"
                   @change="handleLogoUpload"
                   accept="image/*"
                   class="block w-full text-sm text-gray-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-[5px] file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:transition-all file:cursor-pointer"
                 />
-                <!-- Logo Preview: Shows either new preview or existing logo -->
+
                 <div v-if="currentLogo || logoPreview" class="flex-shrink-0">
                   <img
                     :src="logoPreview || `/storage/${currentLogo}`"
@@ -189,30 +189,30 @@
               <p class="mt-1 text-xs text-gray-500">
                 Current logo is shown on the right. File input resets after saving.
               </p>
-              <!-- File Format Guidelines -->
+
               <p class="mt-2 text-xs text-gray-500">
                 Accepted formats: JPG, PNG, GIF (Max size: 2MB)
               </p>
-              <!-- Validation Error Display -->
+
               <p v-if="form.errors.app_logo" class="mt-1 text-sm text-red-500">
                 {{ form.errors.app_logo }}
               </p>
-            </div>
+            </div> -->
 
             <!-- App Icon Upload Field with Preview -->
-            <div class="md:col-span-2">
+            <!-- <div class="md:col-span-2">
               <label class="block mb-2 text-sm font-semibold text-gray-700">
                 {{ $t('settings.app_icon') }}
               </label>
               <div class="flex items-center gap-4">
-                <!-- File Input for Icon Upload -->
+
                 <input
                   type="file"
                   @change="handleIconUpload"
                   accept="image/*"
                   class="block w-full text-sm text-gray-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-[5px] file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:transition-all file:cursor-pointer"
                 />
-                <!-- Icon Preview: Shows either new preview or existing icon -->
+
                 <div v-if="currentIcon || iconPreview" class="flex-shrink-0">
                   <img
                     :src="iconPreview || `/storage/${currentIcon}`"
@@ -224,18 +224,18 @@
               <p class="mt-1 text-xs text-gray-500">
                 Current icon is shown on the right. File input resets after saving.
               </p>
-              <!-- File Format Guidelines -->
+
               <p class="mt-2 text-xs text-gray-500">
                 Accepted formats: JPG, PNG, GIF, ICO (Max size: 2MB)
               </p>
-              <!-- Validation Error Display -->
+
               <p v-if="form.errors.app_icon" class="mt-1 text-sm text-red-500">
                 {{ form.errors.app_icon }}
               </p>
-            </div>
+            </div> -->
 
             <!-- App Footer Text Field -->
-            <div class="md:col-span-2">
+            <!-- <div class="md:col-span-2">
               <label class="block mb-2 text-sm font-semibold text-gray-700">
                 App Footer
               </label>
@@ -245,11 +245,11 @@
                 class="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-[5px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
                 placeholder="Enter footer text (e.g., Copyright © 2025 Your Company)"
               ></textarea>
-              <!-- Validation Error Display -->
+
               <p v-if="form.errors.app_footer" class="mt-1 text-sm text-red-500">
                 {{ form.errors.app_footer }}
               </p>
-            </div>
+            </div> -->
           </div>
 
           <!-- Form Submit Button -->
