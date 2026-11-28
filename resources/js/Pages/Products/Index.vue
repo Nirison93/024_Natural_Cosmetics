@@ -36,6 +36,8 @@
           >
             + {{ $t('products.add') }}
           </button>
+
+          
         </div>
       </div>
 

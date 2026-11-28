@@ -211,10 +211,19 @@ class Product extends Model
     private function openingStockBatch(): ?ProductAvailableQuantity
     {
         if ($this->relationLoaded('batches')) {
-            return $this->batches->firstWhere('batch_number', 'OPENING');
+            return $this->batches->firstWhere('batch_number', 'OPENING')
+                ?? $this->batches->first(function ($batch) {
+                    return !$batch->goods_received_note_id
+                        && strpos((string) $batch->batch_number, 'BATCH-') === 0;
+                });
         }
 
-        return $this->batches()->where('batch_number', 'OPENING')->first();
+        return $this->batches()->where('batch_number', 'OPENING')->first()
+            ?? $this->batches()
+                ->whereNull('goods_received_note_id')
+                ->where('batch_number', 'like', 'BATCH-%')
+                ->orderBy('id')
+                ->first();
     }
 
     public function getShopQuantityInSalesUnitAttribute()

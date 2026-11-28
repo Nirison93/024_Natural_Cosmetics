@@ -207,6 +207,7 @@ export default {
     select_tax: 'Select Tax',
     select_discount: 'Select Discount',
     inventory_units: 'Inventory & Units',
+    batch_number_auto_generated: 'Batch Number (Auto-generated)',
     shop_low_stock_alert: 'Shop Low Stock Alert',
     shop_stock_alert_hint: 'Alert when shop stock falls below this level',
     additional_options: 'Additional Options',

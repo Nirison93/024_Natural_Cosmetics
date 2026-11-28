@@ -159,7 +159,7 @@
                   <th class="px-3 py-2 text-right">Sellable Qty</th>
                   <th class="px-3 py-2 text-right">Purchase</th>
                   <th class="px-3 py-2 text-right">Selling</th>
-                  <th class="px-3 py-2">Supplier</th>
+                  <!-- <th class="px-3 py-2">Supplier</th> -->
                 </tr>
               </thead>
               <tbody>
@@ -175,7 +175,7 @@
                   </td>
                   <td class="px-3 py-2 text-right">{{ formatPrice(batch.purchase_price) }}</td>
                   <td class="px-3 py-2 text-right">{{ formatPrice(batch.selling_price) }}</td>
-                  <td class="px-3 py-2">{{ batch.supplier?.name || "N/A" }}</td>
+                  <!-- <td class="px-3 py-2">{{ batch.supplier?.name || "N/A" }}</td> -->
                 </tr>
               </tbody>
             </table>

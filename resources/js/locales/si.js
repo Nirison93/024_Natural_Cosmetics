@@ -207,6 +207,7 @@ export default {
     select_tax: 'බදු තෝරන්න',
     select_discount: 'වට්ටම් තෝරන්න',
     inventory_units: 'තොග හා ඒකක',
+    batch_number_auto_generated: 'Batch අංකය (ස්වයංක්‍රීයව ජනනය කරයි)',
     shop_low_stock_alert: 'සාප්පු අඩු තොග අනතුරු ඇඟවීම',
     shop_stock_alert_hint: 'සාප්පු තොග මෙම මට්ටමට පහළ වූ විට අනතුරු ඇඟවීමක් ලැබේ',
     additional_options: 'අමතර විකල්ප',

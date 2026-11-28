@@ -151,7 +151,7 @@
             📦 {{ $t('products.inventory_units') }}
           </h3>
 
-          <div class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2 lg:grid-cols-5">
             <!-- Quantity -->
             <div class="min-w-0">
               <label :class="labelClass">Quantity <span class="text-red-500">*</span></label>
@@ -165,6 +165,19 @@
                 placeholder="0"
               />
               <p v-if="form.errors.quantity" :class="errorClass">{{ form.errors.quantity }}</p>
+            </div>
+
+            <!-- Auto-generated Batch Number -->
+            <div class="min-w-0">
+              <label :class="labelClass">{{ $t('products.batch_number_auto_generated') }}</label>
+              <input
+                :value="form.batch_number"
+                type="text"
+                readonly
+                :class="[inputClass, 'bg-gray-100 font-mono font-semibold text-gray-700']"
+                aria-readonly="true"
+              />
+              <p v-if="form.errors.batch_number" :class="errorClass">{{ form.errors.batch_number }}</p>
             </div>
 
             <!-- Expiry Date -->
@@ -361,6 +374,14 @@ const props = defineProps({
 
 const emit = defineEmits(["update:open"]);
 
+const generateBatchNumber = () => {
+  const date = new Date();
+  const dateString = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+  const randomNumber = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+
+  return `BATCH-${dateString}-${randomNumber}`;
+};
+
 const form = useForm({
   name: "",
   barcode: "",
@@ -372,6 +393,7 @@ const form = useForm({
   discount_type: null,
   tax_id: "",
   quantity: 0,
+  batch_number: generateBatchNumber(),
   expire_date: "",
   tax_value: null,
   tax_percentage: null,
@@ -548,6 +570,7 @@ const submit = () => {
     discount_id: form.discount_id,
     tax_id: form.tax_id,
     quantity: parseFloat(form.quantity) || 0,
+    batch_number: form.batch_number,
     expire_date: form.expire_date || null,
     shop_quantity_in_sales_unit: parseFloat(form.shop_quantity_in_sales_unit) || 0,
     shop_low_stock_margin: parseFloat(form.shop_low_stock_margin) || 0,
@@ -652,6 +675,10 @@ const fetchPurchasePriceByBatch = async (productId, batchNumber) => {
 const watchOpen = watch(
   () => props.open,
   (newVal) => {
+    if (newVal) {
+      form.batch_number = generateBatchNumber();
+    }
+
     if (newVal && props.selectedProduct && props.selectedProduct.current_batch) {
       fetchPurchasePriceByBatch(
         props.selectedProduct.id,

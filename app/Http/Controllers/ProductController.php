@@ -223,6 +223,7 @@ class ProductController extends Controller
             'tax_id' => 'nullable|exists:taxes,id',
 
             'quantity' => 'required|numeric|min:0',
+            'batch_number' => ['nullable', 'string', 'regex:/^BATCH-\d{8}-\d{4}$/'],
             'expire_date' => 'nullable|date',
             'shop_quantity' => 'nullable|numeric|min:0',
             'shop_low_stock_margin' => 'nullable|numeric|min:0',
@@ -247,8 +248,9 @@ class ProductController extends Controller
         ]);
 
         $openingQuantity = (float) $validated['quantity'];
+        $openingBatchNumber = $validated['batch_number'] ?? $this->generateBatchNumber();
         $openingExpiryDate = $validated['expire_date'] ?? null;
-        unset($validated['quantity'], $validated['expire_date']);
+        unset($validated['quantity'], $validated['batch_number'], $validated['expire_date']);
 
         // Generate barcode if empty
         if (empty($validated['barcode'])) {
@@ -264,9 +266,9 @@ class ProductController extends Controller
         // Auto-generate search code from category's category_code
         $validated['product_search_code'] = $this->generateProductSearchCode($validated['category_id'] ?? null);
 
-        DB::transaction(function () use ($validated, $openingQuantity, $openingExpiryDate) {
+        DB::transaction(function () use ($validated, $openingQuantity, $openingExpiryDate, $openingBatchNumber) {
             $product = Product::create($validated);
-            $this->saveOpeningBatch($product, $openingQuantity, $openingExpiryDate, true);
+            $this->saveOpeningBatch($product, $openingQuantity, $openingExpiryDate, true, $openingBatchNumber);
         });
 
         return redirect()->route('products.index')
@@ -358,9 +360,11 @@ class ProductController extends Controller
             $validated['expiry_date_required'] = $request->boolean('expiry_date_required');
         }
 
-        DB::transaction(function () use ($product, $validated, $openingQuantity, $openingExpiryDate) {
+        $openingBatchNumber = $this->getOpeningBatchNumber($product);
+
+        DB::transaction(function () use ($product, $validated, $openingQuantity, $openingExpiryDate, $openingBatchNumber) {
             $product->update($validated);
-            $this->saveOpeningBatch($product, $openingQuantity, $openingExpiryDate, false);
+            $this->saveOpeningBatch($product, $openingQuantity, $openingExpiryDate, false, $openingBatchNumber);
         });
 
         return redirect()->route('products.index')
@@ -424,6 +428,7 @@ class ProductController extends Controller
         ]);
 
         $openingQuantity = (float) $validated['quantity'];
+        $openingBatchNumber = $this->generateBatchNumber();
         $openingExpiryDate = $validated['expire_date'] ?? null;
         unset($validated['quantity'], $validated['expire_date']);
 
@@ -441,9 +446,9 @@ class ProductController extends Controller
         // Auto-generate search code from category's category_code
         $validated['product_search_code'] = $this->generateProductSearchCode($validated['category_id'] ?? null);
 
-        DB::transaction(function () use ($validated, $openingQuantity, $openingExpiryDate) {
+        DB::transaction(function () use ($validated, $openingQuantity, $openingExpiryDate, $openingBatchNumber) {
             $product = Product::create($validated);
-            $this->saveOpeningBatch($product, $openingQuantity, $openingExpiryDate, true);
+            $this->saveOpeningBatch($product, $openingQuantity, $openingExpiryDate, true, $openingBatchNumber);
         });
 
         return redirect()->route('products.index')->with('success', 'Product duplicated successfully!');
@@ -522,15 +527,36 @@ class ProductController extends Controller
         }
     }
 
+    private function generateBatchNumber(): string
+    {
+        $randomNumber = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+
+        return 'BATCH-' . now()->format('Ymd') . '-' . $randomNumber;
+    }
+
+    private function getOpeningBatchNumber(Product $product): string
+    {
+        if ($product->batches()->where('batch_number', 'OPENING')->exists()) {
+            return 'OPENING';
+        }
+
+        return $product->batches()
+            ->whereNull('goods_received_note_id')
+            ->where('batch_number', 'like', 'BATCH-%')
+            ->orderBy('id')
+            ->value('batch_number') ?? 'OPENING';
+    }
+
     private function saveOpeningBatch(
         Product $product,
         float $quantity,
         ?string $expiryDate,
-        bool $initializeShopQuantity
+        bool $initializeShopQuantity,
+        string $batchNumber = 'OPENING'
     ): void {
-        $batch = $product->batches()->firstOrNew(['batch_number' => 'OPENING']);
+        $batch = $product->batches()->firstOrNew(['batch_number' => $batchNumber]);
 
-        if ($quantity > 0 || $expiryDate !== null || $batch->exists) {
+        if ($quantity > 0 || $expiryDate !== null || $batch->exists || $batchNumber !== 'OPENING') {
             $batch->expiry_date = $expiryDate;
             $batch->available_sales_quantity = $quantity;
             $batch->received_sales_quantity = $quantity;
