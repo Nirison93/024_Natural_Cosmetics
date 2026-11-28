@@ -143,6 +143,46 @@
           </div>
         </section>
 
+        <section
+          v-if="product?.batch_tracking_enabled"
+          class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+        >
+          <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold text-emerald-700">
+            📦 Batch Inventory
+          </h3>
+          <div v-if="product?.batches?.length" class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="border-b border-gray-200 text-gray-500">
+                  <th class="px-3 py-2">Batch</th>
+                  <th class="px-3 py-2">Expiry</th>
+                  <th class="px-3 py-2 text-right">Sellable Qty</th>
+                  <th class="px-3 py-2 text-right">Purchase</th>
+                  <th class="px-3 py-2 text-right">Selling</th>
+                  <th class="px-3 py-2">Supplier</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="batch in product.batches"
+                  :key="batch.id"
+                  class="border-b border-gray-100 last:border-0"
+                >
+                  <td class="px-3 py-2 font-medium">{{ batch.batch_number }}</td>
+                  <td class="px-3 py-2">{{ batch.expiry_date || "Not recorded" }}</td>
+                  <td class="px-3 py-2 text-right">
+                    {{ Number(batch.available_sales_quantity || 0).toFixed(2) }}
+                  </td>
+                  <td class="px-3 py-2 text-right">{{ formatPrice(batch.purchase_price) }}</td>
+                  <td class="px-3 py-2 text-right">{{ formatPrice(batch.selling_price) }}</td>
+                  <td class="px-3 py-2">{{ batch.supplier?.name || "N/A" }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-else class="text-sm text-gray-500">No batches have been received yet.</p>
+        </section>
+
         <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold text-indigo-600">
             ⚙️ Additional Options
