@@ -1,0 +1,347 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Http\Controllers\ProductController;
+use App\Models\Product;
+use App\Models\ProductAvailableQuantity;
+use App\Models\ProductMovement;
+use App\Services\BatchInventoryService;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Tests\TestCase;
+
+class ProductOpeningStockTest extends TestCase
+{
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Schema::create('products', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('barcode')->nullable()->unique();
+            $table->decimal('shop_quantity', 15, 2)->default(0);
+            $table->decimal('purchase_price', 15, 2)->nullable();
+            $table->decimal('retail_price', 15, 2)->nullable();
+            $table->decimal('wholesale_price', 15, 2)->nullable();
+            $table->boolean('return_product')->default(false);
+            $table->boolean('batch_tracking_enabled')->default(false);
+            $table->boolean('expiry_date_required')->default(false);
+            $table->tinyInteger('status')->default(1);
+            $table->string('product_search_code')->nullable();
+            $table->softDeletes();
+            $table->timestamps();
+        });
+
+        Schema::create('product_available_quantities', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('product_id');
+            $table->string('batch_number')->nullable();
+            $table->unsignedBigInteger('goods_received_note_id')->nullable();
+            $table->date('expiry_date')->nullable();
+            $table->decimal('available_quantity', 15, 2)->default(0);
+            $table->decimal('available_sales_quantity', 15, 2)->default(0);
+            $table->decimal('received_sales_quantity', 15, 2)->default(0);
+            $table->decimal('quarantined_quantity', 15, 2)->default(0);
+            $table->decimal('purchase_price', 15, 2)->default(0);
+            $table->decimal('selling_price', 15, 2)->default(0);
+            $table->decimal('wholesale_price', 15, 2)->default(0);
+            $table->decimal('quantity_in_transfer_unit', 15, 2)->default(0);
+            $table->decimal('quantity_in_sales_unit', 15, 2)->default(0);
+            $table->timestamps();
+        });
+
+        Schema::create('product_movements', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('product_id');
+            $table->unsignedBigInteger('product_available_quantity_id')->nullable();
+            $table->integer('movement_type')->default(0);
+            $table->decimal('quantity', 15, 2);
+            $table->string('reference')->nullable();
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->string('source_type')->nullable();
+            $table->unsignedBigInteger('source_id')->nullable();
+            $table->decimal('quantity_before', 15, 2)->nullable();
+            $table->decimal('quantity_after', 15, 2)->nullable();
+            $table->decimal('quarantined_quantity_before', 15, 2)->nullable();
+            $table->decimal('quarantined_quantity_after', 15, 2)->nullable();
+            $table->string('reason')->nullable();
+            $table->text('notes')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    public function test_product_creation_saves_quantity_and_expiry_and_creates_generated_batch(): void
+    {
+        app(ProductController::class)->store($this->productRequest([
+            'name' => 'Tracked product',
+            'quantity' => 3.5,
+            'batch_number' => 'BATCH-20261128-2889',
+            'expire_date' => '2027-12-31',
+            'purchase_price' => 12.5,
+            'retail_price' => 20.25,
+            'wholesale_price' => 17.5,
+            'batch_tracking_enabled' => true,
+            'expiry_date_required' => true,
+        ]));
+
+        $product = Product::firstOrFail();
+        $batch = ProductAvailableQuantity::firstOrFail();
+
+        $this->assertSame('3.50', $product->quantity);
+        $this->assertSame('2027-12-31', $product->expire_date);
+        $this->assertSame('BATCH-20261128-2889', $batch->batch_number);
+        $this->assertSame('2027-12-31', $batch->expiry_date->format('Y-m-d'));
+        $this->assertSame('12.50', $batch->purchase_price);
+        $this->assertSame('20.25', $batch->selling_price);
+        $this->assertSame('17.50', $batch->wholesale_price);
+        $this->assertSame('3.50', $batch->available_sales_quantity);
+        $this->assertEquals(3.5, $product->shop_quantity);
+        $this->assertFalse(Schema::hasColumn('products', 'quantity'));
+        $this->assertFalse(Schema::hasColumn('products', 'expire_date'));
+    }
+
+    public function test_untracked_product_creation_sets_initial_shop_stock(): void
+    {
+        app(ProductController::class)->store($this->productRequest([
+            'name' => 'Untracked product',
+            'quantity' => 4,
+            'expire_date' => null,
+        ]));
+
+        $product = Product::firstOrFail();
+        $batch = ProductAvailableQuantity::firstOrFail();
+
+        $this->assertSame('4.00', $product->quantity);
+        $this->assertNull($product->expire_date);
+        $this->assertMatchesRegularExpression('/^BATCH-\d{8}-\d{4}$/', $batch->batch_number);
+        $this->assertSame('4.00', $batch->available_sales_quantity);
+        $this->assertEquals(4, $product->shop_quantity);
+        $this->assertSame(1, ProductAvailableQuantity::count());
+    }
+
+    public function test_product_creation_creates_a_batch_even_without_opening_stock(): void
+    {
+        app(ProductController::class)->store($this->productRequest([
+            'name' => 'Empty stock product',
+            'batch_number' => 'BATCH-20261128-1234',
+            'quantity' => 0,
+            'expire_date' => null,
+        ]));
+
+        $product = Product::firstOrFail();
+        $batch = ProductAvailableQuantity::firstOrFail();
+
+        $this->assertSame('BATCH-20261128-1234', $batch->batch_number);
+        $this->assertSame('0.00', $product->quantity);
+        $this->assertSame('0.00', $batch->available_sales_quantity);
+        $this->assertSame('0.00', $batch->received_sales_quantity);
+    }
+
+    public function test_product_update_saves_quantity_and_expiry(): void
+    {
+        $product = Product::create([
+            'name' => 'Existing product',
+            'status' => 1,
+        ]);
+        ProductAvailableQuantity::create([
+            'product_id' => $product->id,
+            'batch_number' => 'OPENING',
+            'expiry_date' => '2027-01-01',
+            'available_sales_quantity' => 1,
+            'received_sales_quantity' => 1,
+            'quarantined_quantity' => 0,
+        ]);
+
+        app(ProductController::class)->update($this->productRequest([
+            'name' => 'Updated product',
+            'quantity' => 8.25,
+            'expire_date' => '2028-06-30',
+        ]), $product);
+
+        $product->refresh();
+        $batch = ProductAvailableQuantity::where('product_id', $product->id)->firstOrFail();
+
+        $this->assertSame('Updated product', $product->name);
+        $this->assertSame('8.25', $product->quantity);
+        $this->assertSame('2028-06-30', $product->expire_date);
+        $this->assertSame('8.25', $batch->available_sales_quantity);
+        $this->assertSame('2028-06-30', $batch->expiry_date->format('Y-m-d'));
+    }
+
+    public function test_duplicate_creates_new_product_with_opening_stock_and_expiry(): void
+    {
+        $source = Product::create([
+            'name' => 'Source product',
+            'shop_quantity' => 20,
+            'status' => 1,
+        ]);
+
+        app(ProductController::class)->duplicate($this->productRequest([
+            'name' => 'Duplicated product',
+            'quantity' => 2.5,
+            'expire_date' => '2028-06-30',
+            'batch_tracking_enabled' => true,
+            'expiry_date_required' => true,
+        ]), $source);
+
+        $duplicate = Product::where('name', 'Duplicated product')->firstOrFail();
+        $batch = ProductAvailableQuantity::where('product_id', $duplicate->id)->firstOrFail();
+
+        $this->assertNotSame($source->id, $duplicate->id);
+        $this->assertSame('2.50', $duplicate->quantity);
+        $this->assertSame('2028-06-30', $duplicate->expire_date);
+        $this->assertMatchesRegularExpression('/^BATCH-\d{8}-\d{4}$/', $batch->batch_number);
+        $this->assertSame('2028-06-30', $batch->expiry_date->format('Y-m-d'));
+        $this->assertSame('2.50', $batch->available_sales_quantity);
+        $this->assertEquals(2.5, $duplicate->shop_quantity);
+    }
+
+    public function test_update_keeps_the_generated_opening_batch_number(): void
+    {
+        $product = Product::create([
+            'name' => 'Existing generated-batch product',
+            'status' => 1,
+        ]);
+        ProductAvailableQuantity::create([
+            'product_id' => $product->id,
+            'batch_number' => 'BATCH-20261128-5555',
+            'goods_received_note_id' => null,
+            'expiry_date' => '2027-01-01',
+            'available_sales_quantity' => 1,
+            'received_sales_quantity' => 1,
+            'quarantined_quantity' => 0,
+        ]);
+
+        app(ProductController::class)->update($this->productRequest([
+            'name' => 'Updated generated-batch product',
+            'quantity' => 8.25,
+            'expire_date' => '2028-06-30',
+        ]), $product);
+
+        $product->refresh();
+        $batch = ProductAvailableQuantity::where('product_id', $product->id)->firstOrFail();
+
+        $this->assertSame('BATCH-20261128-5555', $batch->batch_number);
+        $this->assertSame(1, ProductAvailableQuantity::where('product_id', $product->id)->count());
+        $this->assertSame('8.25', $product->quantity);
+        $this->assertSame('2028-06-30', $batch->expiry_date->format('Y-m-d'));
+    }
+
+    public function test_stock_update_creates_a_batch_and_syncs_batch_tracked_stock(): void
+    {
+        $product = Product::create([
+            'name' => 'Tracked stock update product',
+            'shop_quantity' => 2,
+            'batch_tracking_enabled' => true,
+            'expiry_date_required' => true,
+            'status' => 1,
+        ]);
+        ProductAvailableQuantity::create([
+            'product_id' => $product->id,
+            'batch_number' => 'BATCH-20261128-1111',
+            'expiry_date' => '2027-12-31',
+            'available_sales_quantity' => 2,
+            'received_sales_quantity' => 2,
+            'quarantined_quantity' => 0,
+        ]);
+
+        app(ProductController::class)->stockUpdate($this->productRequest([
+            'batch_number' => 'BATCH-20261128-2222',
+            'quantity' => 3.5,
+            'purchase_price' => 1.25,
+            'selling_price' => 2.5,
+            'wholesale_price' => 2.1,
+            'expiry_date' => '2027-12-31',
+        ]), $product, app(BatchInventoryService::class));
+
+        $product->refresh();
+        $batch = ProductAvailableQuantity::where('product_id', $product->id)
+            ->where('batch_number', 'BATCH-20261128-2222')
+            ->firstOrFail();
+
+        $this->assertSame('3.50', $batch->available_sales_quantity);
+        $this->assertSame('3.50', $batch->received_sales_quantity);
+        $this->assertSame('1.25', $batch->purchase_price);
+        $this->assertSame('2.50', $batch->selling_price);
+        $this->assertSame('2.10', $batch->wholesale_price);
+        $this->assertSame('2027-12-31', $batch->expiry_date->format('Y-m-d'));
+        $this->assertEquals(5.5, $product->shop_quantity);
+        $this->assertSame(ProductMovement::TYPE_STOCK_ADJUSTMENT, ProductMovement::firstOrFail()->movement_type);
+    }
+
+    public function test_stock_update_preserves_existing_stock_for_untracked_products(): void
+    {
+        $product = Product::create([
+            'name' => 'Untracked stock update product',
+            'shop_quantity' => 7,
+            'batch_tracking_enabled' => false,
+            'status' => 1,
+        ]);
+
+        app(ProductController::class)->stockUpdate($this->productRequest([
+            'batch_number' => 'BATCH-20261128-3333',
+            'quantity' => 2,
+            'purchase_price' => 3,
+            'selling_price' => 4,
+            'wholesale_price' => 3.5,
+            'expiry_date' => null,
+        ]), $product, app(BatchInventoryService::class));
+
+        $product->refresh();
+
+        $this->assertEquals(9, $product->shop_quantity);
+        $this->assertSame(1, ProductAvailableQuantity::where('product_id', $product->id)->count());
+    }
+
+    public function test_migration_moves_legacy_opening_stock_and_expiry_before_dropping_product_columns(): void
+    {
+        Schema::table('products', function (Blueprint $table) {
+            $table->decimal('quantity', 15, 2)->default(0);
+            $table->date('expire_date')->nullable();
+        });
+
+        $productId = DB::table('products')->insertGetId([
+            'name' => 'Legacy product',
+            'quantity' => 4.5,
+            'expire_date' => '2027-12-31',
+            'status' => 1,
+        ]);
+
+        $migration = require database_path('migrations/2026_11_28_000002_move_product_opening_stock_to_batches.php');
+        $migration->up();
+
+        $this->assertFalse(Schema::hasColumn('products', 'quantity'));
+        $this->assertFalse(Schema::hasColumn('products', 'expire_date'));
+
+        $batch = DB::table('product_available_quantities')
+            ->where('product_id', $productId)
+            ->where('batch_number', 'OPENING')
+            ->first();
+
+        $this->assertSame('4.50', number_format((float) $batch->available_sales_quantity, 2, '.', ''));
+        $this->assertSame('4.50', number_format((float) $batch->received_sales_quantity, 2, '.', ''));
+        $this->assertSame('2027-12-31', $batch->expiry_date);
+
+        $migration->down();
+
+        $this->assertTrue(Schema::hasColumns('products', ['quantity', 'expire_date']));
+        $restoredProduct = DB::table('products')->where('id', $productId)->first();
+        $this->assertSame('4.50', number_format((float) $restoredProduct->quantity, 2, '.', ''));
+        $this->assertSame('2027-12-31', $restoredProduct->expire_date);
+    }
+
+    private function productRequest(array $attributes): Request
+    {
+        return Request::create('/products', 'POST', array_merge([
+            'quantity' => 0,
+            'expire_date' => null,
+            'batch_tracking_enabled' => false,
+            'expiry_date_required' => false,
+            'status' => 1,
+        ], $attributes));
+    }
+}

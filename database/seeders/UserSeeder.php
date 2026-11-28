@@ -24,6 +24,13 @@ class UserSeeder extends Seeder
             'role' => 0,
         ]);
 
+        User::create([
+            'name' => 'Admin',
+            'email' => 'onlinemudalali@gmail.com',
+            'password' => bcrypt($pass),
+            'role' => 0,
+        ]);
+
         // Manager - All access except settings and setting reports
         User::create([
             'name' => 'Manager',

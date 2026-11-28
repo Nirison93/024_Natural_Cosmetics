@@ -720,7 +720,7 @@ class ReportController extends Controller
         $paymentTypes = ['Cash', 'Card', 'Credit'];
 
         // Fetch all income records with sale information
-        $salesIncomeList = Income::with('sale')
+        $salesIncomeList = Income::with('sale.products')
             ->whereBetween('income_date', [$startDate, $endDate])
             ->orderBy('income_date', 'desc')
             ->orderBy('id', 'desc')
@@ -732,7 +732,8 @@ class ReportController extends Controller
                     'id' => $item->id,
                     'invoice_no' => $item->sale?->invoice_no ?? 'N/A',
                     'income_date' => $item->income_date,
-                    'amount' => number_format($item->sale?->total_amount ?? 0, 2),
+                    'amount' => number_format($item->amount ?? 0, 2),
+                    'discount' => number_format($this->getSalesIncomeDiscount($item, $isReturn), 2),
                     'type' => $type,
                     'is_return' => $isReturn,
                     'payment_type' => $item->payment_type,
@@ -778,7 +779,7 @@ class ReportController extends Controller
         $paymentTypes = ['Cash', 'Card', 'Credit'];
 
         // Fetch all income records with sale information
-        $salesIncomeList = Income::with('sale')
+        $salesIncomeList = Income::with('sale.products')
             ->whereBetween('income_date', [$startDate, $endDate])
             ->orderBy('income_date', 'desc')
             ->orderBy('id', 'desc')
@@ -790,7 +791,8 @@ class ReportController extends Controller
                     'id' => $item->id,
                     'invoice_no' => $item->sale?->invoice_no ?? 'N/A',
                     'income_date' => $item->income_date,
-                    'amount' => number_format($item->sale?->total_amount ?? 0, 2),
+                    'amount' => number_format($item->amount ?? 0, 2),
+                    'discount' => number_format($this->getSalesIncomeDiscount($item, $isReturn), 2),
                     'type' => $type,
                     'is_return' => $isReturn,
                     'payment_type' => $item->payment_type,
@@ -803,13 +805,14 @@ class ReportController extends Controller
             $handle = fopen('php://output', 'w');
 
             // CSV header
-            fputcsv($handle, ['Invoice No', 'Income Date', 'Amount', 'Type', 'Payment Type']);
+            fputcsv($handle, ['Invoice No', 'Income Date', 'Discount', 'Amount', 'Type', 'Payment Type']);
 
             // CSV rows
             foreach ($salesIncomeList as $income) {
                 fputcsv($handle, [
                     $income['invoice_no'],
                     $income['income_date'],
+                    $currency . ' ' . $income['discount'],
                     $currency . ' ' . $income['amount'],
                     $income['type'],
                     $income['payment_type_name'],
@@ -974,8 +977,7 @@ class ReportController extends Controller
      *
      * Shows sales data with filtering options:
      * - Date range
-     * - Sale type (Retail/Wholesale)
-     * - Payment type (Cash/Card/Credit)
+     * - Price type (Purchase/Wholesale/Retail)
      * Includes sales returns adjustment and balance tracking.
      *
      * @param Request $request - Contains filter parameters
@@ -985,7 +987,37 @@ class ReportController extends Controller
     {
         $startDate = $request->input('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
         $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
-           $currencySymbol  = CompanyInformation::first();
+        $validated = $request->validate([
+            'price_type' => 'nullable|in:all,purchase,wholesale,retail',
+        ]);
+        $priceTypeFilter = $validated['price_type'] ?? 'all';
+        $currencySymbol = CompanyInformation::first();
+
+        $applyPriceTypeFilter = function ($query) use ($priceTypeFilter) {
+            if ($priceTypeFilter === 'purchase') {
+                return $query->where('sales.price_type', 'purchase');
+            }
+
+            if ($priceTypeFilter === 'wholesale') {
+                return $query->where(function ($query) {
+                    $query->where('sales.price_type', 'wholesale')
+                        ->orWhere(function ($query) {
+                            $query->whereNull('sales.price_type')->where('sales.type', 2);
+                        });
+                });
+            }
+
+            if ($priceTypeFilter === 'retail') {
+                return $query->where(function ($query) {
+                    $query->where('sales.price_type', 'retail')
+                        ->orWhere(function ($query) {
+                            $query->whereNull('sales.price_type')->where('sales.type', 1);
+                        });
+                });
+            }
+
+            return $query;
+        };
 
         // Income summary by payment type
         $incomeSummary = Income::select(
@@ -1009,27 +1041,28 @@ class ReportController extends Controller
         $totalIncome = Income::whereBetween('income_date', [$startDate, $endDate])->sum('amount');
 
         // Sales summary with returns
-        $salesSummary = Sale::select(
+        $salesSummary = $applyPriceTypeFilter(Sale::select(
                 'type',
                 DB::raw('COUNT(*) as total_sales'),
                 DB::raw('SUM(total_amount) as gross_total'),
                 DB::raw('SUM(discount) as total_discount'),
                 DB::raw('SUM(net_amount) as net_total'),
                 DB::raw('SUM(balance) as total_balance')
-            )
+            ))
             ->whereBetween('sale_date', [$startDate, $endDate])
             ->groupBy('type')
             ->get()
-            ->map(function ($item) use ($startDate, $endDate) {
+            ->map(function ($item) use ($startDate, $endDate, $applyPriceTypeFilter) {
                 $types = [1 => 'Retail', 2 => 'Wholesale'];
 
-                $totalReturns = DB::table('sales_return')
+                $returnsQuery = DB::table('sales_return')
                     ->join('sales', 'sales_return.sale_id', '=', 'sales.id')
                     ->join('sales_return_products', 'sales_return.id', '=', 'sales_return_products.sales_return_id')
                     ->where('sales.type', $item->type)
                     ->where('sales_return.status', 1)
-                    ->whereBetween('sales.sale_date', [$startDate, $endDate])
-                    ->sum('sales_return_products.total');
+                    ->whereBetween('sales.sale_date', [$startDate, $endDate]);
+                $applyPriceTypeFilter($returnsQuery);
+                $totalReturns = $returnsQuery->sum('sales_return_products.total');
 
                 $netTotalAfterReturns = $item->net_total - $totalReturns;
 
@@ -1046,14 +1079,16 @@ class ReportController extends Controller
                 ];
             });
 
-        $totalSalesCount = Sale::whereBetween('sale_date', [$startDate, $endDate])->count();
+        $totalSalesCount = $applyPriceTypeFilter(Sale::query())
+            ->whereBetween('sale_date', [$startDate, $endDate])
+            ->count();
 
-        $salesDetails = Sale::with([
+        $salesDetails = $applyPriceTypeFilter(Sale::with([
                 'customer:id,name',
                 'user:id,name',
-                'products:id,sale_id,product_id,quantity,price,total,discount_amount,net_amount,is_return',
+                'products:id,sale_id,product_id,quantity,price,original_price,product_discount_amount,total,discount_amount,net_amount,is_return',
                 'products.product:id,name,purchase_price',
-            ])
+            ]))
             ->whereBetween('sale_date', [$startDate, $endDate])
             ->orderByDesc('sale_date')
             ->orderByDesc('id')
@@ -1077,6 +1112,7 @@ class ReportController extends Controller
                     'customer' => $sale->customer?->name ?: 'Walk-in Customer',
                     'cashier' => $sale->user?->name,
                     'sale_type' => $sale->type == 2 ? 'Wholesale' : 'Retail',
+                    'price_type' => ucfirst($sale->price_type ?: ($sale->type == 2 ? 'wholesale' : 'retail')) . ' Price',
                     'items_sold' => number_format($itemsSold, 2),
                     'subtotal' => number_format((float) $sale->total_amount, 2),
                     'discount' => number_format((float) $sale->discount, 2),
@@ -1090,8 +1126,9 @@ class ReportController extends Controller
             });
 
         $activeSaleProducts = SalesProduct::where('is_return', false)
-            ->whereHas('sale', function ($query) use ($startDate, $endDate) {
+            ->whereHas('sale', function ($query) use ($startDate, $endDate, $applyPriceTypeFilter) {
                 $query->whereBetween('sale_date', [$startDate, $endDate]);
+                $applyPriceTypeFilter($query);
             })
             ->with('product:id,purchase_price')
             ->get();
@@ -1105,23 +1142,29 @@ class ReportController extends Controller
         // Product Sales Report
         $productSalesReport = Product::select('id', 'name', 'barcode')
             ->with([
-                'salesProducts.sale' => function($query) use ($startDate, $endDate) {
-                    $query->select('id', 'sale_date');
+                'salesProducts.sale' => function($query) use ($startDate, $endDate, $applyPriceTypeFilter) {
+                    $query->select('id', 'sale_date', 'price_type', 'type')
+                        ->whereBetween('sale_date', [$startDate, $endDate]);
+                    $applyPriceTypeFilter($query);
                 },
-                'salesProducts' => function($query) use ($startDate, $endDate) {
+                'salesProducts' => function($query) use ($startDate, $endDate, $applyPriceTypeFilter) {
                     $query->select('id', 'product_id', 'quantity', 'price', 'total', 'sale_id')
-                        ->whereHas('sale', function($q) use ($startDate, $endDate) {
+                        ->whereHas('sale', function($q) use ($startDate, $endDate, $applyPriceTypeFilter) {
                             $q->whereBetween('sale_date', [$startDate, $endDate]);
+                            $applyPriceTypeFilter($q);
                         });
                 },
                 'returnProducts.salesReturn' => function($query) use ($startDate, $endDate) {
                     $query->select('id', 'return_date', 'status');
                 },
-                'returnProducts' => function($query) use ($startDate, $endDate) {
+                'returnProducts' => function($query) use ($startDate, $endDate, $applyPriceTypeFilter) {
                     $query->select('id', 'product_id', 'quantity', 'price', 'total', 'sales_return_id')
-                        ->whereHas('salesReturn', function($q) use ($startDate, $endDate) {
+                        ->whereHas('salesReturn', function($q) use ($startDate, $endDate, $applyPriceTypeFilter) {
                             $q->whereBetween('return_date', [$startDate, $endDate])
-                              ->where('status', 1);
+                              ->where('status', 1)
+                              ->whereHas('sale', function($saleQuery) use ($applyPriceTypeFilter) {
+                                  $applyPriceTypeFilter($saleQuery);
+                              });
                         });
                 }
             ])
@@ -1185,6 +1228,7 @@ class ReportController extends Controller
             'totalSalesCount' => $totalSalesCount,
             'startDate' => $startDate,
             'endDate' => $endDate,
+            'priceTypeFilter' => $priceTypeFilter,
             'currencySymbol' => $currencySymbol,
         ]);
     }
@@ -1770,8 +1814,8 @@ class ReportController extends Controller
 
         $paymentTypes = ['Cash', 'Card', 'Credit'];
 
-        // Fetch paginated income records with sale information
-        $salesIncomeList = Income::with('sale')
+        // Fetch paginated income records with sale and discount information
+        $salesIncomeList = Income::with('sale.products')
             ->whereBetween('income_date', [$startDate, $endDate])
             ->orderBy('income_date', 'desc')
             ->orderBy('id', 'desc')
@@ -1788,6 +1832,7 @@ class ReportController extends Controller
                 'invoice_no' => $item->sale?->invoice_no ?? 'N/A',
                 'income_date' => $item->income_date,
                 'amount' => number_format($item->amount ?? 0, 2),
+                'discount' => number_format($this->getSalesIncomeDiscount($item, $isReturn), 2),
                 'type' => $type,
                 'is_return' => $isReturn,
                 'payment_type' => $item->payment_type,
@@ -1820,6 +1865,19 @@ class ReportController extends Controller
             'currencySymbol' => $currencySymbol,
             'currency' => $currency,
         ]);
+    }
+
+    private function getSalesIncomeDiscount($income, $isReturn)
+    {
+        if ($isReturn || !$income->sale) {
+            return 0;
+        }
+
+        $productDiscount = $income->sale->products
+            ->where('is_return', false)
+            ->sum('product_discount_amount');
+
+        return (float) $income->sale->discount + (float) $productDiscount;
     }
 
     /**

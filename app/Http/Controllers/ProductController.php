@@ -14,7 +14,9 @@ use App\Models\Unit;
 use App\Models\ActivityLog;
 use App\Models\ProductAvailableQuantity;
 use App\Models\GoodsReceivedNote;
+use App\Services\BatchInventoryService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Carbon\Carbon;
@@ -220,6 +222,9 @@ class ProductController extends Controller
             'discount_id' => 'nullable|exists:discounts,id',
             'tax_id' => 'nullable|exists:taxes,id',
 
+            'quantity' => 'required|numeric|min:0',
+            'batch_number' => ['nullable', 'string', 'regex:/^BATCH-\d{8}-\d{4}$/'],
+            'expire_date' => 'nullable|date',
             'shop_quantity' => 'nullable|numeric|min:0',
             'shop_low_stock_margin' => 'nullable|numeric|min:0',
 
@@ -242,6 +247,11 @@ class ProductController extends Controller
             'status' => 'required|integer|in:0,1',
         ]);
 
+        $openingQuantity = (float) $validated['quantity'];
+        $openingBatchNumber = $validated['batch_number'] ?? $this->generateBatchNumber();
+        $openingExpiryDate = $validated['expire_date'] ?? null;
+        unset($validated['quantity'], $validated['batch_number'], $validated['expire_date']);
+
         // Generate barcode if empty
         if (empty($validated['barcode'])) {
             $validated['barcode'] = $this->generateBarcode();
@@ -256,7 +266,10 @@ class ProductController extends Controller
         // Auto-generate search code from category's category_code
         $validated['product_search_code'] = $this->generateProductSearchCode($validated['category_id'] ?? null);
 
-        Product::create($validated);
+        DB::transaction(function () use ($validated, $openingQuantity, $openingExpiryDate, $openingBatchNumber) {
+            $product = Product::create($validated);
+            $this->saveOpeningBatch($product, $openingQuantity, $openingExpiryDate, true, $openingBatchNumber);
+        });
 
         return redirect()->route('products.index')
             ->with('success', 'Product created successfully.');
@@ -308,6 +321,8 @@ class ProductController extends Controller
             'type_id' => 'nullable|exists:types,id',
             'discount_id' => 'nullable|exists:discounts,id',
             'tax_id' => 'nullable|exists:taxes,id',
+            'quantity' => 'required|numeric|min:0',
+            'expire_date' => 'nullable|date',
             'shop_quantity' => 'nullable|numeric|min:0',
             'shop_low_stock_margin' => 'nullable|numeric|min:0',
 
@@ -326,6 +341,10 @@ class ProductController extends Controller
             'status' => 'required|integer|in:0,1',
         ]);
 
+        $openingQuantity = (float) $validated['quantity'];
+        $openingExpiryDate = $validated['expire_date'] ?? null;
+        unset($validated['quantity'], $validated['expire_date']);
+
         // Generate barcode if product doesn't have one
         if (empty($product->barcode) && empty($validated['barcode'])) {
             $validated['barcode'] = $this->generateBarcode();
@@ -341,7 +360,12 @@ class ProductController extends Controller
             $validated['expiry_date_required'] = $request->boolean('expiry_date_required');
         }
 
-        $product->update($validated);
+        $openingBatchNumber = $this->getOpeningBatchNumber($product);
+
+        DB::transaction(function () use ($product, $validated, $openingQuantity, $openingExpiryDate, $openingBatchNumber) {
+            $product->update($validated);
+            $this->saveOpeningBatch($product, $openingQuantity, $openingExpiryDate, false, $openingBatchNumber);
+        });
 
         return redirect()->route('products.index')
             ->with('success', 'Product updated successfully.');
@@ -379,6 +403,8 @@ class ProductController extends Controller
             'type_id' => 'nullable|exists:types,id',
             'discount_id' => 'nullable|exists:discounts,id',
             'tax_id' => 'nullable|exists:taxes,id',
+            'quantity' => 'required|numeric|min:0',
+            'expire_date' => 'nullable|date',
             'shop_quantity' => 'nullable|numeric|min:0',
             'shop_low_stock_margin' => 'nullable|numeric|min:0',
 
@@ -401,6 +427,11 @@ class ProductController extends Controller
             'status' => 'required|integer|in:0,1',
         ]);
 
+        $openingQuantity = (float) $validated['quantity'];
+        $openingBatchNumber = $this->generateBatchNumber();
+        $openingExpiryDate = $validated['expire_date'] ?? null;
+        unset($validated['quantity'], $validated['expire_date']);
+
         // Auto-generate barcode if not provided
         if (empty($validated['barcode'])) {
             $validated['barcode'] = $this->generateBarcode();
@@ -415,9 +446,43 @@ class ProductController extends Controller
         // Auto-generate search code from category's category_code
         $validated['product_search_code'] = $this->generateProductSearchCode($validated['category_id'] ?? null);
 
-        Product::create($validated);
+        DB::transaction(function () use ($validated, $openingQuantity, $openingExpiryDate, $openingBatchNumber) {
+            $product = Product::create($validated);
+            $this->saveOpeningBatch($product, $openingQuantity, $openingExpiryDate, true, $openingBatchNumber);
+        });
 
         return redirect()->route('products.index')->with('success', 'Product duplicated successfully!');
+    }
+
+    public function stockUpdate(Request $request, Product $product, BatchInventoryService $batchInventory)
+    {
+        $validated = $request->validate([
+            'batch_number' => ['required', 'string', 'regex:/^BATCH-\d{8}-\d{4}$/'],
+            'quantity' => 'required|numeric|min:0.01',
+            'purchase_price' => 'required|numeric|min:0',
+            'selling_price' => 'required|numeric|min:0',
+            'wholesale_price' => 'required|numeric|min:0',
+            'expiry_date' => [$product->expiry_date_required ? 'required' : 'nullable', 'date'],
+        ]);
+
+        DB::transaction(function () use ($product, $validated, $batchInventory) {
+            $lockedProduct = Product::query()
+                ->whereKey($product->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $batchInventory->receiveManual(
+                $lockedProduct,
+                $validated['batch_number'],
+                $validated['expiry_date'] ?? null,
+                (float) $validated['quantity'],
+                (float) $validated['purchase_price'],
+                (float) $validated['selling_price'],
+                (float) $validated['wholesale_price']
+            );
+        });
+
+        return back()->with('success', 'Stock updated successfully.');
     }
 
     private function validateBatchSettings(Request $request, ?Product $product): void
@@ -441,6 +506,18 @@ class ProductController extends Controller
                     'shop_quantity' => 'Batch-tracked products must receive their opening stock through a GRN.',
                 ]);
             }
+
+            if (
+                $tracksBatches
+                && $requiresExpiry
+                && (float) $request->input('quantity', 0) > 0
+                && !$request->filled('expire_date')
+            ) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'expire_date' => 'An expiry date is required for the opening batch.',
+                ]);
+            }
+
             return;
         }
 
@@ -478,6 +555,60 @@ class ProductController extends Controller
                     'expiry_date_required' => 'Every active batch needs an expiry date before requiring expiry tracking.',
                 ]);
             }
+        }
+    }
+
+    private function generateBatchNumber(): string
+    {
+        $randomNumber = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+
+        return 'BATCH-' . now()->format('Ymd') . '-' . $randomNumber;
+    }
+
+    private function getOpeningBatchNumber(Product $product): string
+    {
+        if ($product->batches()->where('batch_number', 'OPENING')->exists()) {
+            return 'OPENING';
+        }
+
+        return $product->batches()
+            ->whereNull('goods_received_note_id')
+            ->where('batch_number', 'like', 'BATCH-%')
+            ->orderBy('id')
+            ->value('batch_number') ?? 'OPENING';
+    }
+
+    private function saveOpeningBatch(
+        Product $product,
+        float $quantity,
+        ?string $expiryDate,
+        bool $initializeShopQuantity,
+        string $batchNumber = 'OPENING'
+    ): void {
+        $batch = $product->batches()->firstOrNew(['batch_number' => $batchNumber]);
+
+        if ($quantity > 0 || $expiryDate !== null || $batch->exists || $batchNumber !== 'OPENING') {
+            $batch->expiry_date = $expiryDate;
+            $batch->available_sales_quantity = $quantity;
+            $batch->received_sales_quantity = $quantity;
+            $batch->quarantined_quantity = 0;
+
+            if (!$batch->exists) {
+                $batch->purchase_price = $product->purchase_price ?? 0;
+                $batch->selling_price = $product->retail_price ?? 0;
+                $batch->wholesale_price = $product->wholesale_price ?? 0;
+            }
+
+            $batch->save();
+        }
+
+        if ($product->batch_tracking_enabled) {
+            if ($quantity > 0 || $batch->exists) {
+                app(BatchInventoryService::class)->syncSellableQuantity($product);
+            }
+        } elseif ($initializeShopQuantity && $quantity > 0) {
+            $product->shop_quantity = $quantity;
+            $product->save();
         }
     }
 

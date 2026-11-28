@@ -86,6 +86,9 @@
                       Income Date
                     </th>
                     <th class="px-4 py-3 text-right text-sm font-semibold text-blue-600">
+                      Discount
+                    </th>
+                    <th class="px-4 py-3 text-right text-sm font-semibold text-blue-600">
                       Amount
                     </th>
                     <th class="px-4 py-3 text-center text-sm font-semibold text-blue-600">
@@ -99,7 +102,7 @@
                 <tbody class="divide-y divide-gray-200">
                   <!-- Cash Payments -->
                   <tr>
-                    <td colspan="5" class="bg-green-50 text-green-700 font-bold px-4 py-2">Cash Payments</td>
+                    <td colspan="6" class="bg-green-50 text-green-700 font-bold px-4 py-2">Cash Payments</td>
                   </tr>
                   <tr
                     v-for="income in salesIncomeList.data.filter(i => i.payment_type === 0)"
@@ -111,6 +114,9 @@
                     </td>
                     <td class="px-4 py-3 text-center">
                       {{ formatDate(income.income_date) }}
+                    </td>
+                    <td class="px-4 py-3 text-right font-semibold text-red-600">
+                      - {{ page.props.currency || "" }} {{ income.discount }}
                     </td>
                     <td
                       class="px-4 py-3 text-right font-semibold"
@@ -137,7 +143,7 @@
                   </tr>
                   <!-- Card Payments -->
                   <tr>
-                    <td colspan="5" class="bg-blue-50 text-blue-700 font-bold px-4 py-2">Card Payments</td>
+                    <td colspan="6" class="bg-blue-50 text-blue-700 font-bold px-4 py-2">Card Payments</td>
                   </tr>
                   <tr
                     v-for="income in salesIncomeList.data.filter(i => i.payment_type === 1)"
@@ -149,6 +155,9 @@
                     </td>
                     <td class="px-4 py-3 text-center">
                       {{ formatDate(income.income_date) }}
+                    </td>
+                    <td class="px-4 py-3 text-right font-semibold text-red-600">
+                      - {{ page.props.currency || "" }} {{ income.discount }}
                     </td>
                     <td
                       class="px-4 py-3 text-right font-semibold"

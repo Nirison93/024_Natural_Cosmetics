@@ -14,6 +14,8 @@ class SalesProduct extends Model
         'product_id',
         'quantity',
         'price',
+        'original_price',
+        'product_discount_amount',
         'total',
         'discount_amount',
         'net_amount',
@@ -23,6 +25,8 @@ class SalesProduct extends Model
     protected $casts = [
         'quantity' => 'decimal:2',
         'price' => 'decimal:2',
+        'original_price' => 'decimal:2',
+        'product_discount_amount' => 'decimal:2',
         'total' => 'decimal:2',
         'discount_amount' => 'decimal:2',
         'net_amount' => 'decimal:2',

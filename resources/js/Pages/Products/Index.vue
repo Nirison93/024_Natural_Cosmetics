@@ -16,19 +16,19 @@
         </div>
         <!-- Action Buttons -->
         <div class="flex gap-3">
-          <button
+          <!-- <button
             @click="$inertia.visit(route('inventory.batches.index'))"
             class="px-6 py-2.5 rounded-[5px] font-medium text-sm bg-emerald-700 text-white hover:bg-emerald-800 transition-all duration-200"
           >
             📋 Batch Inventory
-          </button>
+          </button> -->
           <!-- Add GRN Button -->
-          <button
+          <!-- <button
             @click="$inertia.visit(route('good-receive-notes.create'))"
             class="px-6 py-2.5 rounded-[5px] font-medium text-sm bg-green-600 text-white hover:bg-green-700 hover:scale-105 transition-all duration-300"
           >
             📦 {{ $t('products.add_grn') }}
-          </button>
+          </button> -->
           <!-- Add New Product Button -->
           <button
             @click="openCreateModal"
@@ -36,6 +36,8 @@
           >
             + {{ $t('products.add') }}
           </button>
+
+          
         </div>
       </div>
 
@@ -84,7 +86,7 @@
               <th class="px-4 py-3 text-blue-600 font-semibold text-sm">{{ $t('fields.number') }}</th>
               <th class="px-4 py-3 text-blue-600 font-semibold text-sm">{{ $t('products.product_info') }}</th>
               <th class="px-4 py-3 text-blue-600 font-semibold text-sm">
-                {{ $t('fields.brand') }}/{{ $t('fields.category') }}
+                {{ $t('fields.category') }}
               </th>
               <th class="px-4 py-3 text-blue-600 font-semibold text-sm text-right">
                 {{ $t('fields.price') }} ({{ currencySymbol.currency }})
@@ -92,9 +94,12 @@
               <th class="px-4 py-3 text-blue-600 font-semibold text-sm text-center">
                 {{ $t('fields.qty') }}
               </th>
-              <th class="px-4 py-3 text-blue-600 font-semibold text-sm text-center">
+              <!-- <th class="px-4 py-3 text-blue-600 font-semibold text-sm text-center">
+                Expiry Date
+              </th> -->
+              <!-- <th class="px-4 py-3 text-blue-600 font-semibold text-sm text-center">
                 {{ $t('fields.status') }}
-              </th>
+              </th> -->
               <th class="px-4 py-3 text-blue-600 font-semibold text-sm text-center">
                 {{ $t('common.actions') }}
               </th>
@@ -128,9 +133,9 @@
               <!-- Brand & Category -->
               <td class="px-4 py-4">
                 <div class="space-y-1">
-                  <div class="text-sm text-gray-800">
+                  <!-- <div class="text-sm text-gray-800">
                     {{ product.brand?.name || "N/A" }}
-                  </div>
+                  </div> -->
                   <div class="text-xs text-gray-600">
                     {{
                       product?.category?.hierarchy_string
@@ -163,12 +168,12 @@
                       <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M10.894 2.553a.889.889 0 00-1.788 0l-.412 2.463H6.781a.889.889 0 000 1.778h2.354l-1.06 6.36H5.228a.889.889 0 000 1.778h2.073l-.412 2.463a.889.889 0 101.788 0l.412-2.463h3.812l-.412 2.463a.889.889 0 101.788 0l.412-2.463h2.073a.889.889 0 100-1.778h-2.354l1.06-6.36h2.354a.889.889 0 100-1.778h-2.073l.412-2.463a.889.889 0 10-1.788 0l-.412 2.463h-3.812l.412-2.463zm1.06 7.138l1.06-6.36H9.894l-1.06 6.36h3.12z"/>
                       </svg>
-                      <span>{{ Number(product.shop_quantity || 0).toFixed(0) }}</span>
-                      <span class="text-xs font-normal opacity-75">{{ product.sales_unit?.symbol || 'Unit' }}</span>
+                      <span>{{ Number(product.quantity ?? 0).toFixed(2) }}</span>
+                    
                     </span>
                   </div>
                   
-                  <!-- Minimum Stock Threshold -->
+                 
                   <div class="inline-flex items-center justify-center">
                     <span class="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-full text-xs font-semibold text-orange-700 shadow-sm">
                       <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -179,8 +184,11 @@
                   </div>
                 </div>
               </td>
+              <!-- <td class="px-4 py-4 text-center text-sm text-gray-700">
+                {{ product.expire_date || "N/A" }}
+              </td> -->
               <!-- Product Status Badge -->
-              <td class="px-4 py-4 text-center">
+              <!-- <td class="px-4 py-4 text-center">
                 <span
                   :class="{
                     'bg-red-500/90 text-white px-4 py-1.5 rounded-[5px] font-medium text-xs':
@@ -199,10 +207,10 @@
                       : $t('fields.status')
                   }}
                 </span>
-              </td>
+              </td> -->
               <!-- Action Buttons -->
               <td class="px-4 py-4">
-                <div class="flex gap-2 justify-center">
+                <div class="flex flex-wrap gap-2 justify-center">
                   <button
                     @click="openViewModal(product)"
                     class="px-4 py-2 text-xs font-medium text-white bg-green-600 rounded-[5px] hover:bg-green-700 hover:scale-105 transition-all duration-300"
@@ -227,12 +235,18 @@
                   >
                     {{ $t('common.duplicate') }}
                   </button>
+                  <button
+                    @click="openStockUpdateModal(product)"
+                    class="px-4 py-2 text-xs font-medium text-white bg-emerald-600 rounded-[5px] hover:bg-emerald-700 hover:scale-105 transition-all duration-300"
+                  >
+                    {{ $t('products.stock_update') }}
+                  </button>
                 </div>
               </td>
             </tr>
             <!-- Empty State Message -->
             <tr v-if="!products.data || products.data.length === 0">
-              <td colspan="7" class="px-6 py-8 text-center text-gray-500 font-medium">
+              <td colspan="8" class="px-6 py-8 text-center text-gray-500 font-medium">
                 {{ $t('products.no_products') }}
               </td>
             </tr>
@@ -317,6 +331,10 @@
       :discounts="discounts"
       :taxes="taxes"
     />
+    <ProductStockUpdateModal
+      v-model:open="isStockUpdateModalOpen"
+      :product="selectedProductForStockUpdate"
+    />
   </AppLayout>
 </template>
 
@@ -338,6 +356,7 @@ import ProductCreateModal from "./Components/ProductCreateModal.vue";
 import ProductViewModal from "./Components/ProductViewModal.vue";
 import ProductEditModal from "./Components/ProductEditModal.vue";
 import ProductDuplicateModal from "./Components/ProductDuplicateModal.vue";
+import ProductStockUpdateModal from "./Components/ProductStockUpdateModal.vue";
 
 /**
  * Component Props
@@ -401,9 +420,11 @@ const isCreateModalOpen = ref(false);
 const isViewModalOpen = ref(false);
 const isEditModalOpen = ref(false);
 const isDuplicateModalOpen = ref(false);
+const isStockUpdateModalOpen = ref(false);
 const selectedProduct = ref(null);
 const selectedProductForView = ref(null);
 const selectedProductForDuplicate = ref(null);
+const selectedProductForStockUpdate = ref(null);
 const search = ref(props.filters?.search || "");
 let searchDebounceTimer = null;
 
@@ -498,5 +519,10 @@ const openDuplicateModal = (product) => {
   }
   selectedProductForDuplicate.value = { ...product };
   isDuplicateModalOpen.value = true;
+};
+
+const openStockUpdateModal = (product) => {
+  selectedProductForStockUpdate.value = product;
+  isStockUpdateModalOpen.value = true;
 };
 </script>

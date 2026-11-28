@@ -46,7 +46,7 @@ class SaleController extends Controller
             ->groupBy('product_id')
             ->pluck('total_qty', 'product_id');
 
-        $products = Product::select('id', 'name', 'barcode', 'product_search_code', 'retail_price', 'wholesale_price', 'market_price', 'shop_quantity', 'shop_low_stock_margin', 'image', 'brand_id', 'category_id', 'type_id', 'discount_id', 'sales_unit_id', 'batch_tracking_enabled', 'expiry_date_required')
+        $products = Product::select('id', 'name', 'barcode', 'product_search_code', 'purchase_price', 'retail_price', 'wholesale_price', 'market_price', 'shop_quantity', 'shop_low_stock_margin', 'image', 'brand_id', 'category_id', 'type_id', 'discount_id', 'sales_unit_id', 'batch_tracking_enabled', 'expiry_date_required')
 
             ->with(['brand:id,name', 'category:id,name', 'type:id,name', 'discount:id,name,value,type','salesUnit:id,name'])
             ->orderBy('name')
@@ -198,10 +198,13 @@ class SaleController extends Controller
         $request->validate([
             'invoice_no' => 'required|unique:sales,invoice_no',
             'customer_type' => 'required|in:retail,wholesale',
+            'price_type' => 'sometimes|in:purchase,wholesale,retail',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|numeric|gt:0',
             'items.*.price' => 'required|numeric|min:0',
+            'items.*.original_price' => 'nullable|numeric|min:0',
+            'items.*.discountApplied' => 'sometimes|boolean',
             'discount' => 'nullable|numeric|min:0',
             'payments' => 'required|array|min:1',
             'payments.*.payment_type' => 'required|in:0,1,2',
@@ -239,6 +242,7 @@ class SaleController extends Controller
             $sale = Sale::create([
                 'invoice_no' => $request->invoice_no,
                 'type' => $type,
+                'price_type' => $request->input('price_type', $request->customer_type),
                 'customer_id' => $request->customer_id ?: null,
                 'user_id' => Auth::id(),
                 'total_amount' => $totalAmount,
@@ -253,6 +257,12 @@ class SaleController extends Controller
             // Proportionally distribute discount across all line items based on their subtotal
             foreach ($request->items as $item) {
                 $lineTotal = $item['price'] * $item['quantity'];
+                $originalUnitPrice = !empty($item['discountApplied'])
+                    ? (float) ($item['original_price'] ?? $item['price'])
+                    : (float) $item['price'];
+                $productDiscountAmount = !empty($item['discountApplied'])
+                    ? max(0, $originalUnitPrice - (float) $item['price']) * $item['quantity']
+                    : 0;
 
                 // Calculate proportional discount for this line item
                 // Formula: (line_total / total_amount) * total_discount
@@ -273,6 +283,8 @@ class SaleController extends Controller
                     'product_id' => $item['product_id'],
                     'quantity' => $item['quantity'],
                     'price' => round($discountedUnitPrice, 2), // Store discounted unit price
+                    'original_price' => round($originalUnitPrice, 2),
+                    'product_discount_amount' => round($productDiscountAmount, 2),
                     'total' => $lineTotal,
                     'discount_amount' => round($lineDiscountAmount, 2),
                     'net_amount' => round($lineNetAmount, 2),
@@ -384,6 +396,7 @@ class SaleController extends Controller
                     'id' => $sale->id,
                     'invoice_no' => $sale->invoice_no,
                     'type' => $sale->type,
+                    'price_type' => $sale->price_type,
                     'customer' => $sale->customer,
                     'products' => $sale->products,
                     'total_amount' => $sale->total_amount,

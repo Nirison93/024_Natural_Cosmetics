@@ -126,6 +126,19 @@
                       {{ selectedSale?.products?.length || 0 }} items
                     </p>
                   </div>
+                  <div>
+                    <span class="text-gray-600">Price Type:</span>
+                    <p class="font-semibold text-gray-800 mt-0.5">
+                      {{ getPriceTypeLabel(selectedSale) }}
+                    </p>
+                  </div>
+                  <div>
+                    <span class="text-gray-600">Total Discount:</span>
+                    <p class="font-semibold text-red-600 mt-0.5">
+                      - {{ page.props.currency || "" }}
+                      {{ formatCurrency(getTotalDiscount(selectedSale)) }}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -163,29 +176,41 @@
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
-                      <tr
-                        v-for="item in selectedSale?.products || []"
-                        :key="item.id"
-                        class="hover:bg-gray-50 transition"
-                      >
-                        <td class="px-5 py-3 text-gray-800 font-medium">
-                          {{
-                            (item.product && item.product.name) ||
-                            item.product_name ||
-                            "Unknown Product"
-                          }}
-                        </td>
-                        <td class="px-5 py-3 text-center text-gray-700 font-medium">
-                          {{ item.quantity }}
-                        </td>
-                        <td class="px-5 py-3 text-right text-gray-700">
-                          {{ page.props.currency || "" }} {{ formatCurrency(item.price) }}
-                        </td>
-                        <td class="px-5 py-3 text-right text-gray-800 font-semibold">
-                          {{ page.props.currency || "" }}
-                          {{ formatCurrency(item.total || item.price * item.quantity) }}
-                        </td>
-                      </tr>
+                      <template v-for="item in selectedSale?.products || []" :key="item.id">
+                        <tr class="hover:bg-gray-50 transition">
+                          <td class="px-5 py-3 text-gray-800 font-medium">
+                            {{
+                              (item.product && item.product.name) ||
+                              item.product_name ||
+                              "Unknown Product"
+                            }}
+                          </td>
+                          <td class="px-5 py-3 text-center text-gray-700 font-medium">
+                            {{ item.quantity }}
+                          </td>
+                          <td class="px-5 py-3 text-right text-gray-700">
+                            {{ page.props.currency || "" }}
+                            {{ formatCurrency(item.original_price ?? item.price) }}
+                          </td>
+                          <td class="px-5 py-3 text-right text-gray-800 font-semibold">
+                            {{ page.props.currency || "" }}
+                            {{
+                              formatCurrency(
+                                item.total != null ? item.total : item.price * item.quantity
+                              )
+                            }}
+                          </td>
+                        </tr>
+                        <tr v-if="Number(item.product_discount_amount) > 0" class="bg-red-50">
+                          <td colspan="3" class="px-5 py-2 text-right text-sm text-red-700">
+                            Product Discount
+                          </td>
+                          <td class="px-5 py-2 text-right text-sm font-semibold text-red-700">
+                            - {{ page.props.currency || "" }}
+                            {{ formatCurrency(item.product_discount_amount) }}
+                          </td>
+                        </tr>
+                      </template>
                       <tr
                         v-if="
                           !selectedSale?.products || selectedSale.products.length === 0
@@ -212,11 +237,24 @@
                     <span class="text-gray-700">Subtotal:</span>
                     <span class="font-semibold text-gray-800">
                       {{ page.props.currency || "" }}
-                      {{ formatCurrency(selectedSale?.total_amount) }}
+                      {{ formatCurrency(getSubtotal(selectedSale)) }}
                     </span>
                   </div>
-                  <div class="flex justify-between items-center">
-                    <span class="text-gray-700">Discount:</span>
+                  <div
+                    v-if="getProductDiscount(selectedSale) > 0"
+                    class="flex justify-between items-center"
+                  >
+                    <span class="text-gray-700">Product Discount:</span>
+                    <span class="font-semibold text-red-600">
+                      - {{ page.props.currency || "" }}
+                      {{ formatCurrency(getProductDiscount(selectedSale)) }}
+                    </span>
+                  </div>
+                  <div
+                    v-if="Number(selectedSale?.discount) > 0"
+                    class="flex justify-between items-center"
+                  >
+                    <span class="text-gray-700">Additional Discount:</span>
                     <span class="font-semibold text-red-600">
                       - {{ page.props.currency || "" }}
                       {{ formatCurrency(selectedSale?.discount) }}
@@ -497,6 +535,23 @@ const getSaleType = (type) => {
   return type === 1 ? "Retail" : type === 2 ? "Wholesale" : "Unknown";
 };
 
+const getPriceTypeLabel = (sale) => {
+  const type = sale?.price_type || (sale?.type === 2 ? "wholesale" : "retail");
+  return `${type.charAt(0).toUpperCase()}${type.slice(1)} Price`;
+};
+
+const getProductDiscount = (sale) =>
+  (sale?.products || []).reduce(
+    (total, product) => total + (Number(product.product_discount_amount) || 0),
+    0
+  );
+
+const getTotalDiscount = (sale) =>
+  getProductDiscount(sale) + (Number(sale?.discount) || 0);
+
+const getSubtotal = (sale) =>
+  (Number(sale?.total_amount) || 0) + getProductDiscount(sale);
+
 const formatProducts = (products) => {
   if (!products || products.length === 0) return "-";
   return products
@@ -539,18 +594,27 @@ const printReceipt = (sale) => {
   const invoice = s?.invoice_no || "";
   const saleDate = formatDate(s?.sale_date) || "";
   const customer = s?.customer && s.customer.name ? s.customer.name : "Walk-in";
+  const priceType = s?.price_type || (Number(s?.type) === 2 ? "wholesale" : "retail");
   const items = (s?.products || []).map((p) => ({
     product_name:
       p.product && p.product.name ? p.product.name : p.product_name || "Unknown",
     quantity: p.quantity || 0,
-    price: parseFloat(p.price) || 0,
+    price: p.original_price != null ? parseFloat(p.original_price) || 0 : parseFloat(p.price) || 0,
+    lineTotal: p.total != null
+      ? parseFloat(p.total) || 0
+      : (parseFloat(p.price) || 0) * (p.quantity || 0),
+    productDiscount: parseFloat(p.product_discount_amount) || 0,
   }));
 
-  const subtotal =
-    parseFloat(s?.total_amount) ||
-    items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const productDiscount = items.reduce((sum, item) => sum + item.productDiscount, 0);
+  const savedTotal = s?.total_amount != null
+    ? parseFloat(s.total_amount) || 0
+    : items.reduce((sum, item) => sum + item.lineTotal, 0);
+  const subtotal = savedTotal + productDiscount;
   const discount = parseFloat(s?.discount) || 0;
-  const net = parseFloat(s?.net_amount) || subtotal - discount;
+  const net = s?.net_amount != null
+    ? parseFloat(s.net_amount) || 0
+    : savedTotal - discount;
   const balance = parseFloat(s?.balance) || 0;
   const paid = (net - balance).toFixed(2);
 
@@ -604,6 +668,7 @@ const printReceipt = (sale) => {
           <div class="info-row"><span><strong>Invoice:</strong></span><span>${invoice}</span></div>
           <div class="info-row"><span><strong>Date:</strong></span><span>${saleDate}</span></div>
           <div class="info-row"><span><strong>Customer:</strong></span><span>${customer}</span></div>
+          <div class="info-row"><span><strong>Price Type:</strong></span><span>${priceType.charAt(0).toUpperCase() + priceType.slice(1)} Price</span></div>
           <div class="info-row"><span><strong>Payment:</strong></span><span>-</span></div>
         </div>
 
@@ -624,8 +689,13 @@ const printReceipt = (sale) => {
                 <td class="item-name">${item.product_name}</td>
                 <td class="item-qty">${item.quantity}</td>
                 <td class="item-price">${item.price.toFixed(2)}</td>
-                <td class="item-total">${(item.price * item.quantity).toFixed(2)}</td>
+                <td class="item-total">${item.lineTotal.toFixed(2)}</td>
               </tr>
+              ${
+                item.productDiscount > 0
+                  ? `<tr><td colspan="4" style="text-align:right;">Product Discount: - ${page.props.currency || ""} ${item.productDiscount.toFixed(2)}</td></tr>`
+                  : ""
+              }
             `
               )
               .join("")}
@@ -636,10 +706,16 @@ const printReceipt = (sale) => {
           <div class="total-row"><span>Sub Total</span><span>${
             page.props.currency || ""
           } ${subtotal.toFixed(2)}</span></div>
-          <div class="total-row"><span>Discount</span><span>${
-            page.props.currency || ""
-          } ${discount.toFixed(2)}</span></div>
-          <div class="total-row"><span>Custom Discount</span><span>0.00 %</span></div>
+          ${
+            productDiscount > 0
+              ? `<div class="total-row"><span>Product Discount</span><span>-${page.props.currency || ""} ${productDiscount.toFixed(2)}</span></div>`
+              : ""
+          }
+          ${
+            discount > 0
+              ? `<div class="total-row"><span>Additional Discount</span><span>-${page.props.currency || ""} ${discount.toFixed(2)}</span></div>`
+              : ""
+          }
           <div class="total-row grand"><span>Total</span><span>${
             page.props.currency || ""
           } ${net.toFixed(2)}</span></div>
@@ -662,7 +738,6 @@ const printReceipt = (sale) => {
         let printExecuted = false;
         window.onload = function(){ setTimeout(function(){ if(!printExecuted){ printExecuted = true; window.print(); } }, 300); };
         window.onafterprint = function(){ setTimeout(function(){ window.close(); }, 200); };
-        setTimeout(function(){ if(!window.closed){ window.close(); } }, 5000);
       <\/script>
     </body>
     </html>

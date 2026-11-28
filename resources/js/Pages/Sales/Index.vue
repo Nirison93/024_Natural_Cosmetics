@@ -191,42 +191,45 @@
             <label class="block text-xs font-semibold text-gray-700 mb-1"
               >💰 Price Type</label
             >
-            <div class="flex gap-2">
+            <div class="grid grid-cols-3 gap-1">
               <label
-                class="flex-1 flex items-center justify-center gap-2 cursor-pointer px-3 py-1.5 rounded-[5px] transition-all duration-200 text-sm"
-                :class="
-                  form.customer_type === 'retail'
-                    ? 'bg-blue-700 text-white font-semibold'
-                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium'
-                "
+                class="flex min-w-0 items-center justify-center cursor-pointer rounded-[5px] px-1.5 py-1.5 text-center text-xs transition-all duration-200"
+                :class="priceType === 'retail' ? 'bg-blue-700 text-white font-semibold' : 'bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium'"
               >
                 <input
                   type="radio"
-                  v-model="form.customer_type"
+                  v-model="priceType"
                   value="retail"
-                  @change="updateCartPrices"
+                  @change="selectPriceType('retail')"
                   class="sr-only"
                 />
-                <span>🛒</span>
-                <span>Retail</span>
+                <span>Retail Price</span>
               </label>
               <label
-                class="flex-1 flex items-center justify-center gap-2 cursor-pointer px-3 py-1.5 rounded-[5px] transition-all duration-200 text-sm"
-                :class="
-                  form.customer_type === 'wholesale'
-                    ? 'bg-blue-700 text-white font-semibold'
-                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium'
-                "
+                class="flex min-w-0 items-center justify-center cursor-pointer rounded-[5px] px-1.5 py-1.5 text-center text-xs transition-all duration-200"
+                :class="priceType === 'wholesale' ? 'bg-blue-700 text-white font-semibold' : 'bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium'"
               >
                 <input
                   type="radio"
-                  v-model="form.customer_type"
+                  v-model="priceType"
                   value="wholesale"
-                  @change="updateCartPrices"
+                  @change="selectPriceType('wholesale')"
                   class="sr-only"
                 />
-                <span>🏢</span>
-                <span>Wholesale</span>
+                <span>Wholesale Price</span>
+              </label>
+              <label
+                class="flex min-w-0 items-center justify-center cursor-pointer rounded-[5px] px-1.5 py-1.5 text-center text-xs transition-all duration-200"
+                :class="priceType === 'purchase' ? 'bg-blue-700 text-white font-semibold' : 'bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium'"
+              >
+                <input
+                  type="radio"
+                  v-model="priceType"
+                  value="purchase"
+                  @change="selectPriceType('purchase')"
+                  class="sr-only"
+                />
+                <span>Purchase Price</span>
               </label>
             </div>
           </div>
@@ -267,7 +270,10 @@
         </div>
 
         <!-- Modern POS Workspace: Categories | Product Grid + Cart | Order Summary -->
-        <div class="pos-main-grid flex-1 min-h-0">
+        <div
+          class="pos-main-grid flex-1 min-h-0"
+          :style="{ '--cart-row-height': cartRowHeight }"
+        >
           <!-- LEFT: Category Sidebar -->
           <div class="category-sidebar-card bg-white rounded-xl shadow-md border border-gray-200 p-3 flex flex-col">
             <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide px-1 mb-2 flex-shrink-0">
@@ -298,7 +304,7 @@
           </div>
 
           <!-- CENTER: Product Browsing -->
-          <div class="product-browse-card bg-white rounded-xl shadow-md border border-gray-200 p-4 flex flex-col">
+          <div class="product-browse-card bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-4 flex flex-col">
             <div class="flex items-center gap-1.5 mb-2.5 flex-shrink-0">
               <input
                 ref="productSearchField"
@@ -306,13 +312,13 @@
                 v-model="productFilters.search"
                 @input="filterProducts"
                 placeholder="🔍 Search products by name or search code..."
-                class="flex-1 px-3 py-2 bg-gray-50 text-gray-800 border border-gray-200 rounded-[5px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all text-sm"
+                class="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-100 border border-gray-200 dark:border-gray-600 rounded-lg placeholder-gray-400 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white dark:focus:bg-gray-700 transition-all text-sm"
               />
               <button
                 type="button"
                 @click="openProductModal"
                 title="Advanced filters (brand, type, discount, stock)"
-                class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-[5px] transition font-medium text-sm flex-shrink-0"
+                class="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-100 rounded-lg transition font-medium text-sm flex-shrink-0"
               >
                 ⚙️ Filters
               </button>
@@ -334,7 +340,7 @@
                   <div class="p-3">
                     <div class="flex items-start justify-between gap-1.5 mb-1.5">
                       <h4
-                        class="text-gray-900 font-semibold text-sm leading-snug line-clamp-2 flex-1"
+                        class="text-gray-900 dark:text-gray-100 font-semibold text-sm leading-snug line-clamp-2 flex-1"
                         :title="product.name"
                       >
                         {{ product.name }}
@@ -348,7 +354,7 @@
                     </div>
 
                     <div class="flex items-center justify-between gap-1.5">
-                      <span class="text-blue-700 font-bold text-base">
+                      <span class="text-blue-700 dark:text-blue-300 font-bold text-base">
                         {{ page.props.currency || "Rs." }}{{ parseFloat(getCurrentPrice(product) || 0).toFixed(2) }}
                       </span>
                       <span
@@ -373,7 +379,7 @@
             <!-- Infinite scroll status (loads more automatically on scroll, no click needed) -->
             <div
               v-if="filteredProducts.length > 0"
-              class="flex items-center justify-center gap-2 pt-2 mt-1 border-t border-gray-100 flex-shrink-0"
+              class="flex items-center justify-center gap-2 pt-2 mt-1 border-t border-gray-100 dark:border-gray-700 flex-shrink-0"
             >
               <span class="text-xs text-gray-500">
                 Showing {{ infiniteScrollProducts.length }} of {{ filteredProducts.length }}
@@ -406,137 +412,168 @@
                 </div>
               </div>
               <div class="overflow-auto flex-1 min-h-0">
-                <table class="w-full">
+                <table class="w-full table-fixed">
+                  <colgroup>
+                    <col style="width: 18%" />
+                    <col style="width: 22%" />
+                    <col style="width: 35%" />
+                    <col style="width: 15%" />
+                    <col style="width: 10%" />
+                  </colgroup>
                   <thead class="border-b-2 border-blue-600">
                     <tr>
-                      <th class="px-4 py-3 text-left text-sm font-semibold text-blue-700">
+                      <th class="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-blue-700">
                         Product
                       </th>
                       <th
-                        class="px-4 py-3 text-right text-sm font-semibold text-blue-700"
+                        class="px-1 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-blue-700"
                       >
                         Price
                       </th>
                       <th
-                        class="px-4 py-3 text-center text-sm font-semibold text-blue-700"
+                        class="px-0 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-blue-700"
                       >
                         Qty
                       </th>
                       <th
-                        class="px-4 py-3 text-right text-sm font-semibold text-blue-700"
+                        class="px-1 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-blue-700"
                       >
                         Total
                       </th>
                       <th
-                        class="px-4 py-3 text-center text-sm font-semibold text-blue-700"
+                        class="px-0 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-blue-700"
                       >
-                        Action
+                        <span class="sr-only">Action</span>
                       </th>
                     </tr>
                   </thead>
-                  <tbody class="divide-y divide-gray-200">
-                            <tr v-if="form.payments && form.payments.length">
-                              <td colspan="5" class="text-left py-1">
-                                <span v-for="(p, idx) in form.payments" :key="idx" class="mr-4">
-                                  {{ getPaymentTypeText(p.payment_type) }}: {{ page.props.currency || '' }}{{ p.amount }}
-                                </span>
-                              </td>
-                            </tr>
-                    <tr
-                      v-for="(item, index) in form.items"
-                      :key="index"
-                      class="text-gray-700 hover:bg-gray-50 transition"
-                    >
-                      <td class="px-4 py-3">
-                        <div class="flex flex-col gap-1">
-                          <span class="font-medium">{{ item.product_name }}</span>
-                          <span
-                            v-if="item.discount && item.discountApplied"
-                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-500 text-white w-fit"
-                          >
-                            Apply {{ item.discount.value
-                            }}{{
-                              item.discount.type === 0 ? "%" : page.props.currency || ""
-                            }}
-                            Off
-                            <button
-                              @click="removeItemDiscount(index)"
-                              class="ml-1 hover:bg-green-600 rounded-full w-4 h-4 flex items-center justify-center"
-                              title="Remove Discount"
-                            >
-                              ✕
-                            </button>
-                          </span>
-                          <button
-                            v-else-if="item.discount && !item.discountApplied"
-                            @click="applyItemDiscount(index)"
-                            class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500 hover:bg-blue-600 text-white w-fit"
-                          >
-                            Apply {{ item.discount.value
-                            }}{{
-                              item.discount.type === 0 ? "%" : page.props.currency || ""
-                            }}
-                            Off
-                          </button>
-                        </div>
-                      </td>
-                      <td class="px-4 py-3 text-right">
-                        <div class="flex flex-col items-end gap-1">
-                          <span
-                            v-if="item.discountApplied"
-                            class="line-through text-gray-500 text-xs"
-                            >({{ page.props.currency || "Rs." }})
-                            {{ (item.originalPrice||0).toFixed(2) }}</span
-                          >
-                          <input
-                            type="number"
-                            :value="item.price"
-                            @input="updatePrice(index, $event.target.value)"
-                            class="w-24 text-right font-medium bg-white text-gray-800 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            min="0"
-                            step="0.01"
-                          />
-                        </div>
-                      </td>
-                      <td class="px-4 py-3 text-center">
-                        <div class="flex items-center justify-center gap-2">
-                          <button
-                            @click="updateQuantity(index, item.quantity - 0.5)"
-                            class="w-7 h-7 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded font-bold transition"
-                          >
-                            -
-                          </button>
-                          <input
-                            type="number"
-                            :value="item.quantity"
-                            @input="
-                              updateQuantityInput(index, $event.target.value)
-                            "
-                            class="w-16 text-center font-semibold bg-white text-gray-800 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            min="0.01"
-                            step="0.01"
-                          />
-                          <button
-                            @click="updateQuantity(index, item.quantity + 0.5)"
-                            class="w-7 h-7 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded font-bold transition"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </td>
-                      <td class="px-4 py-3 text-right font-semibold text-green-600">
-                        ({{ page.props.currency || "Rs." }})
-                        {{ ((item.price * item.quantity)||0).toFixed(2) }}
-                      </td>
-                      <td class="px-4 py-3 text-center">
-                        <button
-                          @click="removeItem(index)"
-                          class="text-red-600 hover:text-red-700 hover:bg-red-50 rounded p-1 transition text-xl"
-                        >
-                          🗑️
-                        </button>
+                  <tbody class="divide-y divide-gray-100">
+                    <tr v-if="form.payments && form.payments.length">
+                      <td colspan="5" class="bg-gray-50 px-2 py-2 text-left text-xs text-gray-600">
+                        <span v-for="(p, idx) in form.payments" :key="idx" class="mr-4">
+                          {{ getPaymentTypeText(p.payment_type) }}: {{ page.props.currency || '' }}{{ p.amount }}
+                        </span>
                       </td>
                     </tr>
+                    <template v-for="(item, index) in form.items" :key="index">
+                      <tr class="text-gray-700 transition-colors hover:bg-blue-50/50">
+                        <td class="px-2 py-2 align-middle">
+                          <div class="flex min-w-0 flex-col items-start gap-1.5">
+                            <span
+                              class="w-full break-words text-xs font-semibold leading-tight text-gray-800"
+                              :title="item.product_name"
+                            >
+                              {{ item.product_name }}
+                            </span>
+                            <span
+                              v-if="item.discount && item.discountApplied"
+                              class="inline-flex max-w-full items-center gap-1 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-green-800"
+                            >
+                              Apply {{ item.discount.value
+                              }}{{
+                                item.discount.type === 0 ? "%" : page.props.currency || ""
+                              }}
+                              Off
+                              <button
+                                type="button"
+                                @click="removeItemDiscount(index)"
+                                class="ml-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full hover:bg-green-200"
+                                title="Remove Discount"
+                                aria-label="Remove item discount"
+                              >
+                                ✕
+                              </button>
+                            </span>
+                            <button
+                              type="button"
+                              v-else-if="item.discount && !item.discountApplied"
+                              @click="applyItemDiscount(index)"
+                              class="inline-flex max-w-full items-center rounded bg-blue-50 px-1.5 py-1 text-[10px] font-semibold leading-tight text-blue-700 hover:bg-blue-100"
+                            >
+                              Apply {{ item.discount.value
+                              }}{{
+                                item.discount.type === 0 ? "%" : page.props.currency || ""
+                              }}
+                              Off
+                            </button>
+                          </div>
+                        </td>
+                        <td class="px-1 py-2 align-middle">
+                          <div class="flex min-w-0 flex-col items-center gap-1">
+                            <input
+                              type="number"
+                              :value="item.price"
+                              @input="updatePrice(index, $event.target.value)"
+                              class="h-11 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-1 text-center text-base font-bold text-gray-800 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              min="0"
+                              step="0.01"
+                              title="Edit item price"
+                              aria-label="Edit item price"
+                            />
+                            <span
+                              v-if="item.discountApplied"
+                              class="w-full truncate text-center text-[10px] text-gray-400 line-through"
+                              :title="`Original price: ${item.originalPrice}`"
+                            >
+                              {{ (item.originalPrice || 0).toFixed(2) }}
+                            </span>
+                          </div>
+                        </td>
+                        <td class="px-0 py-2 align-middle">
+                          <div class="flex items-center justify-center gap-0.5">
+                            <button
+                              type="button"
+                              @click="updateQuantity(index, item.quantity - 1)"
+                              class="inline-flex h-11 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg bg-blue-100 text-lg font-bold text-blue-700 transition hover:bg-blue-200 active:scale-95"
+                              title="Decrease quantity"
+                              aria-label="Decrease quantity"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="number"
+                              :value="item.quantity"
+                              @input="updateQuantityInput(index, $event.target.value)"
+                              class="cart-quantity-input h-11 w-12 shrink-0 rounded-lg border border-gray-300 bg-white px-1 text-center text-base font-bold text-gray-800 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              min="0.01"
+                              step="1"
+                              title="Edit quantity"
+                              aria-label="Edit quantity"
+                            />
+                            <button
+                              type="button"
+                              @click="updateQuantity(index, item.quantity + 1)"
+                              class="inline-flex h-11 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg bg-blue-100 text-lg font-bold text-blue-700 transition hover:bg-blue-200 active:scale-95"
+                              title="Increase quantity"
+                              aria-label="Increase quantity"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </td>
+                        <td class="px-1 py-2 text-right align-middle">
+                          <span class="block truncate text-[10px] text-gray-500">
+                            {{ page.props.currency || "Rs." }}
+                          </span>
+                          <span class="block whitespace-nowrap text-xs font-bold text-green-700">
+                            {{ ((item.price * item.quantity) || 0).toFixed(2) }}
+                          </span>
+                        </td>
+                        <td class="px-0 py-2 text-center align-middle">
+                          <button
+                            type="button"
+                            @click="removeItem(index)"
+                            class="inline-flex h-10 w-10 touch-manipulation items-center justify-center rounded-lg text-red-600 transition hover:bg-red-50 hover:text-red-700 active:scale-95"
+                            title="Remove item"
+                            aria-label="Remove item"
+                          >
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 7h16M10 11v6m4-6v6M5 7l1 14h12l1-14M9 7V4h6v3" />
+                            </svg>
+                          </button>
+                        </td>
+                      </tr>
+                    </template>
                     <tr v-if="form.items.length === 0">
                       <td colspan="5" class="px-4 py-8 text-center text-gray-500">
                         No items in cart - Scan barcode or select product to add
@@ -1433,7 +1470,8 @@ const getCustomerName = (customerId) => {
 const form = useForm({
   invoice_no: props.invoice_no,
   customer_id: '', // Ensure default is empty
-  customer_type: "retail", // retail or wholesale
+  customer_type: "retail", // Sale customer category remains retail or wholesale
+  price_type: "retail",
   sale_date: new Date().toISOString().split("T")[0],
   items: [],
   discount: 0,
@@ -1442,6 +1480,11 @@ const form = useForm({
   payments: [], // Multiple payments
   quotation_id: null, // Track loaded quotation for status update
 });
+
+const priceType = ref("retail");
+const cartRowHeight = computed(() =>
+  `${Math.min(420, Math.max(190, 130 + form.items.length * 75))}px`
+);
 
 const selectedProduct = ref(null);
 const selectedQuantity = ref(1);
@@ -1463,6 +1506,7 @@ const completedInvoice = ref("");
 const completedSaleDate = ref("");
 const completedCustomer = ref("");
 const completedPaymentType = ref(0);
+const completedPriceType = ref("retail");
 const completedItems = ref([]);
 const completedTotal = ref("0.00");
 const completedProductDiscount = ref("0.00");
@@ -1544,6 +1588,8 @@ const loadQuotationData = () => {
   // Load quotation data into form
   form.customer_id = quotation.customer_id || "";
   form.customer_type = quotation.customer_type || "retail";
+  priceType.value = form.customer_type;
+  form.price_type = priceType.value;
   form.discount = quotation.discount || 0;
   form.quotation_id = quotation.id; // Store quotation ID for status update when sale completes
   form.items = quotation.items.map((item) => ({
@@ -1739,11 +1785,30 @@ const getPaymentTypeText = (type) => {
   return types[type] || "Cash";
 };
 
-// Get current price based on customer type
+// Get the selected product price for the cart
 const getCurrentPrice = (product) => {
-  return form.customer_type === "wholesale"
-    ? product.wholesale_price
-    : product.retail_price;
+  const priceField = {
+    purchase: "purchase_price",
+    wholesale: "wholesale_price",
+    retail: "retail_price",
+  }[priceType.value];
+
+  return product[priceField] ?? 0;
+};
+
+const getPriceTypeLabel = (type) => ({
+  purchase: "Purchase Price",
+  wholesale: "Wholesale Price",
+  retail: "Retail Price",
+}[type] || "Retail Price");
+
+const selectPriceType = (type) => {
+  priceType.value = type;
+  form.price_type = type;
+  if (type !== "purchase") {
+    form.customer_type = type;
+  }
+  updateCartPrices();
 };
 
 // Add product by barcode
@@ -1860,11 +1925,7 @@ const removeItemDiscount = (index) => {
   const item = form.items[index];
   if (!item.discountApplied) return;
 
-  item.price =
-    item.price_type === 'wholesale'
-      ? item.wholesale_price
-      : item.originalPrice;
-
+  item.price = item.originalPrice;
   item.discountApplied = false;
 };
 
@@ -1938,6 +1999,7 @@ const holdBill = () => {
     customer_id: form.customer_id,
     customer_name: getCustomerName(form.customer_id) || "Walk-in",
     customer_type: form.customer_type,
+    price_type: priceType.value,
     discount: form.discount,
     items: JSON.parse(JSON.stringify(form.items)),
     total: form.items.reduce((sum, item) => sum + item.price * item.quantity, 0),
@@ -1948,6 +2010,8 @@ const holdBill = () => {
   form.items = [];
   form.customer_id = "";
   form.customer_type = "retail";
+  priceType.value = "retail";
+  form.price_type = "retail";
   form.discount = 0;
   form.payments = [];
   form.paid_amount = 0;
@@ -1967,6 +2031,8 @@ const resumeHeldBill = (bill) => {
   form.items = JSON.parse(JSON.stringify(bill.items));
   form.customer_id = bill.customer_id;
   form.customer_type = bill.customer_type;
+  priceType.value = bill.price_type || bill.customer_type || "retail";
+  form.price_type = priceType.value;
   form.discount = bill.discount;
 
   heldBills.value = heldBills.value.filter((b) => b.id !== bill.id);
@@ -2248,7 +2314,17 @@ const updateCartPrices = () => {
   form.items.forEach((item) => {
     const product = props.products.find((p) => p.id === item.product_id);
     if (product) {
-      item.price = parseFloat(getCurrentPrice(product));
+      const selectedPrice = parseFloat(getCurrentPrice(product)) || 0;
+
+      if (item.discountApplied && item.discount) {
+        item.originalPrice = selectedPrice;
+        item.price =
+          item.discount.type === 0
+            ? Math.max(0, selectedPrice - selectedPrice * (item.discount.value / 100))
+            : Math.max(0, selectedPrice - item.discount.value);
+      } else {
+        item.price = selectedPrice;
+      }
     }
   });
 };
@@ -2283,7 +2359,21 @@ const submitSale = () => {
     props.customers.find((c) => c.id === form.customer_id)?.name || "";
   completedPaymentType.value =
     form.payments.length > 0 ? form.payments[0].payment_type : 0;
-  completedItems.value = [...form.items];
+  completedPriceType.value = priceType.value;
+  form.price_type = priceType.value;
+  form.items = form.items.map((item) => ({
+    ...item,
+    original_price:
+      item.discountApplied && item.originalPrice != null
+        ? item.originalPrice
+        : item.price,
+  }));
+  completedItems.value = form.items.map((item) => ({
+    ...item,
+    product_discount_amount: item.discountApplied
+      ? Math.max(0, (Number(item.original_price) - Number(item.price)) * Number(item.quantity))
+      : 0,
+  }));
   completedTotal.value = (originalTotal.value||0).toFixed(2);
   completedProductDiscount.value = (totalProductDiscount.value||0).toFixed(2);
   completedDiscount.value = (Number(form.discount) || 0).toFixed(2);
@@ -2311,16 +2401,20 @@ const submitSale = () => {
       );
 
       if (shouldAutoPrint) {
+        let receiptOpened = false;
         try {
-          printReceipt();
+          receiptOpened = printReceipt();
         } catch (e) {
           console.error("Auto print failed:", e);
         }
 
-        // Small delay to allow print dialog to open before navigating away
-        setTimeout(() => {
-          router.visit(route("sales.index"));
-        }, 800);
+        if (receiptOpened) {
+          setTimeout(() => {
+            router.visit(route("sales.index"));
+          }, 800);
+        } else {
+          showSuccessModal.value = true;
+        }
       } else {
         // Show confirmation modal when auto-print is disabled
         showSuccessModal.value = true;
@@ -2358,7 +2452,7 @@ const printReceipt = () => {
 
   if (!printWindow) {
     alert("Please allow pop-ups to print receipt");
-    return;
+    return false;
   }
 
   const receiptContent = `
@@ -2570,6 +2664,10 @@ const printReceipt = () => {
                         <span>${completedCustomer.value}</span>
                     </div>
                     <div class="info-row">
+                        <span><strong>Price Type:</strong></span>
+                        <span>${getPriceTypeLabel(completedPriceType.value)}</span>
+                    </div>
+                    <div class="info-row">
                         <span><strong>Payment Method:</strong></span>
                         <span>${getPaymentTypeText(completedPaymentType.value)}</span>
                     </div>
@@ -2588,22 +2686,29 @@ const printReceipt = () => {
                     </thead>
                     <tbody>
                         ${completedItems.value
-                          .map(
-                            (item) => `
+                          .map((item) => {
+                            const quantity = Number(item.quantity) || 0;
+                            const unitPrice = Number(item.original_price ?? item.price) || 0;
+                            const productDiscount = Number(item.product_discount_amount) || 0;
+                            const lineTotal = (Number(item.price) || 0) * quantity;
+                            return `
                             <tr class="item-name-row">
-                                <td colspan="5">${item.product_name}</td>
+                                <td colspan="4">${item.product_name}</td>
                             </tr>
                             <tr class="item-data-row">
                                 <td></td>
-                                <td class="item-price">${(item.market_price||0).toFixed(2)}</td>
+                                <td class="item-price">${unitPrice.toFixed(2)}</td>
                                
-                                <td class="item-price">${item.quantity}</td>
-                                <td class="item-total">${(
-                                  (item.price||0) * item.quantity
-                                ).toFixed(2)}</td>
+                                <td class="item-price">${quantity}</td>
+                                <td class="item-total">${lineTotal.toFixed(2)}</td>
                             </tr>
-                        `
-                          )
+                            ${
+                              productDiscount > 0
+                                ? `<tr class="item-data-row"><td colspan="4" style="text-align:right;">Product Discount: - ${page.props.currency || "Rs."} ${productDiscount.toFixed(2)}</td></tr>`
+                                : ""
+                            }
+                        `;
+                          })
                           .join("")}
                     </tbody>
                 </table>
@@ -2718,11 +2823,6 @@ const printReceipt = () => {
                     }, 200);
                 }
 
-                setTimeout(function() {
-                    if (!window.closed) {
-                        window.close();
-                    }
-                }, 5000);
             <\/script>
         </body>
         </html>
@@ -2730,6 +2830,7 @@ const printReceipt = () => {
 
   printWindow.document.write(receiptContent);
   printWindow.document.close();
+  return true;
 };
 
 // Close modal and reload
@@ -2741,7 +2842,7 @@ const closeModal = () => {
 // Print from success modal then close and redirect
 const printAndClose = () => {
   try {
-    printReceipt();
+    if (!printReceipt()) return;
   } catch (e) {
     console.error("Print failed:", e);
   }
@@ -3018,6 +3119,17 @@ select.no-arrow::-ms-expand {
   display: none;
 }
 
+.cart-quantity-input {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.cart-quantity-input::-webkit-inner-spin-button,
+.cart-quantity-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* ===== Modern POS Workspace Layout ===== */
 /* The whole page is a fixed h-screen flex column (see template), so this
    workspace fills the remaining height exactly and never causes page scroll.
@@ -3025,7 +3137,7 @@ select.no-arrow::-ms-expand {
 .pos-main-grid {
   display: grid;
   grid-template-columns: 200px minmax(0, 1fr) 520px;
-  grid-template-rows: minmax(340px, 420px) minmax(0, 1fr);
+  grid-template-rows: var(--cart-row-height, 420px) minmax(0, 1fr);
   gap: 1rem;
   align-items: stretch;
   min-height: 0;
@@ -3066,8 +3178,9 @@ select.no-arrow::-ms-expand {
 
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+  gap: 0.75rem;
+  padding: 0.25rem 0.25rem 0.75rem;
 }
 
 /* Category sidebar buttons */
@@ -3103,27 +3216,65 @@ select.no-arrow::-ms-expand {
 /* Product cards */
 .product-card {
   position: relative;
-  background: #fff;
-  border: 1px solid #f3f4f6;
-  border-radius: 10px;
+  min-height: 84px;
+  background: linear-gradient(145deg, #ffffff, #f8fafc);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.05);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, background 0.16s ease;
 }
 .product-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  border-color: #d1d5db;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+  border-color: #93c5fd;
 }
 .product-card:active {
-  transform: scale(0.97);
+  transform: scale(0.98);
 }
 .product-card-active {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 2px #2563eb;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35), 0 5px 14px rgba(37, 99, 235, 0.12);
 }
 .product-card-selected {
   border-color: #f59e0b;
-  box-shadow: 0 0 0 2px #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.45), 0 5px 14px rgba(245, 158, 11, 0.12);
+}
+
+.dark .product-browse-card {
+  background: #111827;
+  border-color: #374151;
+}
+
+.dark .product-grid-scroll {
+  scrollbar-color: #4b5563 #111827;
+}
+
+.dark .product-card {
+  background: linear-gradient(145deg, #1f2937, #18212f);
+  border-color: #374151;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+}
+
+.dark .product-card h4 {
+  color: #f9fafb;
+}
+
+.dark .product-card:hover {
+  background: linear-gradient(145deg, #273548, #1f2937);
+  border-color: #60a5fa;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.34);
+}
+
+.dark .product-card-active {
+  background: linear-gradient(145deg, #1e3a5f, #1f2937);
+  border-color: #60a5fa;
+}
+
+.dark .product-card-selected {
+  border-color: #fbbf24;
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.42), 0 6px 16px rgba(0, 0, 0, 0.3);
 }
 
 @media (max-width: 1399px) {

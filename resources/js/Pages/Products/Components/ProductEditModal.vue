@@ -1,5 +1,5 @@
 <template>
-  <Modal :show="open" @close="closeModal" max-width="6xl">
+  <Modal :show="open" @close="closeModal" max-width="4xl">
     <div class="p-6 bg-gray-50">
       <div
         ref="modalContainer"
@@ -26,12 +26,12 @@
 
         <form @submit.prevent="handleSubmit">
           <!-- Basic Information Section -->
-          <div class="mb-6">
+          <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <h3 class="mb-4 text-lg font-semibold text-blue-600 flex items-center gap-2">
               📋 Basic Information
             </h3>
             <div class="p-4 bg-white rounded-xl shadow-sm border border-gray-200">
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <!-- Product Name -->
                 <div>
                   <label class="block mb-2 text-sm font-medium text-gray-700">
@@ -49,34 +49,6 @@
                   }}</span>
                 </div>
 
-                <!-- Barcode -->
-                <div>
-                  <label class="block mb-2 text-sm font-medium text-gray-700"
-                    >Barcode</label
-                  >
-                  <input
-                    v-model="form.barcode"
-                    type="text"
-                    class="w-full px-4 py-2 text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter or scan barcode"
-                  />
-                  <span v-if="errors.barcode" class="text-sm text-red-500">{{
-                    errors.barcode
-                  }}</span>
-                </div>
-
-                <!-- Brand with Searchable Dropdown -->
-                <div>
-                  <label class="block mb-2 text-sm font-medium text-gray-700"
-                    >Brand</label
-                  >
-                  <SearchableSelect
-                    v-model="form.brand_id"
-                    :options="brandOptions"
-                    placeholder="Search brands..."
-                  />
-                </div>
-
                 <!-- Category with Searchable Dropdown -->
                 <div>
                   <label class="block mb-2 text-sm font-medium text-gray-700"
@@ -89,65 +61,31 @@
                   />
                 </div>
 
-                <!-- Unit -->
-                <div>
-                  <label class="block mb-2 text-sm font-medium text-gray-700">Unit</label>
-                  <select
-                    v-model="form.type_id"
-                    class="w-full px-4 py-2 text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select Unit</option>
-                    <option v-for="type in types" :key="type.id" :value="type.id">
-                      {{ type.name }}
-                    </option>
-                  </select>
-                </div>
-
-                <!-- Status -->
-                <div>
-                  <label class="block mb-2 text-sm font-medium text-gray-700"
-                    >Status</label
-                  >
-                  <select
-                    v-model="form.status"
-                    class="w-full px-4 py-2 text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="1">Active</option>
-                    <option value="0">Inactive</option>
-                  </select>
-                </div>
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- Pricing Section -->
-          <div class="mb-6">
+          <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <h3 class="mb-4 text-lg font-semibold text-green-600 flex items-center gap-2">
               💰 Pricing Information ({{ page.props.currency || "" }})
             </h3>
             <div class="p-4 bg-white rounded-xl shadow-sm border border-gray-200">
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <!-- Purchase Price -->
                 <div>
                   <label class="block mb-2 text-sm font-medium text-gray-700"
                     >Purchase Price
-                    <span v-if="form.sales_unit_id" class="text-green-600">
-                      (per {{ getSalesUnitName(form.sales_unit_id) }})
-                    </span>
                   </label
                   >
                   <input
-                    v-model.number="purchasePricePerSalesUnitInput"
+                    v-model.number="form.purchase_price"
                     type="number"
                     step="0.01"
-                    required
                     class="w-full px-4 py-2 text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="0.00"
 
                   />
-                  <span class="text-xs text-gray-500">
-                    {{ purchasePriceFormulaText }}
-                  </span>
                 </div>
 
                 <!-- Wholesale Price -->
@@ -181,37 +119,6 @@
                   }}</span>
                 </div>
 
-                <!-- Market Price -->
-                <div>
-                  <label class="block mb-2 text-sm font-medium text-gray-700">
-                    Market Price
-                  </label>
-                  <input
-                    v-model.number="form.market_price"
-                    type="number"
-                    step="0.01"
-                    class="w-full px-4 py-2 text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="0.00"
-                  />
-                  <span v-if="errors.market_price" class="text-sm text-red-500">{{
-                    errors.market_price
-                  }}</span>
-                </div>
-
-                 <!-- Tax -->
-                <div>
-                  <label class="block mb-2 text-sm font-medium text-gray-700">Tax</label>
-                  <select
-                    v-model="form.tax_id"
-                    class="w-full px-4 py-2 text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">No Tax</option>
-                    <option v-for="tax in taxes" :key="tax.id" :value="tax.id">
-                      {{ tax.name }} - {{ tax.percentage }}%
-                    </option>
-                  </select>
-                </div>
-
                 <!-- Discount -->
                 <div>
                   <label class="block mb-2 text-sm font-medium text-gray-700"
@@ -239,17 +146,17 @@
 
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- Inventory Section -->
-          <div class="mb-6">
+          <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <h3
               class="mb-4 text-lg font-semibold text-orange-600 flex items-center gap-2"
             >
-              📦 Inventory & Units
+              📦 Inventory
             </h3>
             <div class="p-4 bg-white rounded-xl shadow-sm border border-gray-200">
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <!-- Purchase Unit -->
                 <!-- <div>
                   <label class="block mb-2 text-sm font-medium text-gray-700"
@@ -343,19 +250,38 @@
                   />
                 </div> -->
 
+                <div>
+                  <label class="block mb-2 text-sm font-medium text-gray-700">Quantity <span class="text-red-500">*</span></label>
+                  <input
+                    v-model.number="form.quantity"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required
+                    class="w-full px-4 py-2 text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="0"
+                  />
+                  <span v-if="errors.quantity" class="text-sm text-red-500">{{ errors.quantity }}</span>
+                </div>
+                <div>
+                  <label class="block mb-2 text-sm font-medium text-gray-700">Expiry Date</label>
+                  <input
+                    v-model="form.expire_date"
+                    type="date"
+                    class="w-full px-4 py-2 text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <span v-if="errors.expire_date" class="text-sm text-red-500">{{ errors.expire_date }}</span>
+                </div>
                 <!-- Shop Quantity -->
                 <!-- <div>
                   <label class="block mb-2 text-sm font-medium text-gray-700"
                     >Shop Quantity
-                    <span v-if="form.sales_unit_id" class="text-blue-600">
-                      ({{ getSalesUnitName(form.sales_unit_id) }})
-                    </span>
                   </label>
                   <input
                     v-model.number="form.shop_quantity"
                     type="number"
                     class="w-full px-4 py-2 text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="0"
+                    placeholder="10"
                     readonly
                   />
                 </div> -->
@@ -363,52 +289,53 @@
                 <!-- Shop Low Stock Alert -->
                 <div>
                   <label class="block mb-2 text-sm font-medium text-gray-700"
-                    >Shop Low Stock Alert
-                    <span v-if="form.sales_unit_id" class="text-blue-600">
-                      ({{ getSalesUnitName(form.sales_unit_id) }})
-                    </span>
-                  </label>
+                    >Shop Low Stock Alert</label>
                   <input
                     v-model.number="form.shop_low_stock_margin"
                     type="number"
                     class="w-full px-4 py-2 text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="0"
+                    placeholder="10"
                   />
+                  <p class="mt-1 text-xs text-gray-500">Alert when shop stock falls below this level</p>
+                </div>
+
+                <!-- Barcode -->
+                <div>
+                  <label class="block mb-2 text-sm font-medium text-gray-700">Barcode</label>
+                  <input
+                    v-model="form.barcode"
+                    type="text"
+                    class="w-full px-4 py-2 text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter or scan barcode"
+                  />
+                  <span v-if="errors.barcode" class="text-sm text-red-500">{{ errors.barcode }}</span>
                 </div>
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- Conversion Rates Section -->
 
           <!-- Additional Options Section -->
-          <div class="mb-6">
+          <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <h3
               class="mb-4 text-lg font-semibold text-indigo-600 flex items-center gap-2"
             >
               ⚙️ Additional Options
             </h3>
             <div class="p-4 bg-white rounded-xl shadow-sm border border-gray-200">
-              <div class="space-y-4">
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <!-- Return Product Checkbox -->
-                <div
-                  class="flex items-center p-3 bg-white rounded-lg border border-gray-200"
-                >
+                  <!-- <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
                   <input
                     v-model="form.return_product"
                     type="checkbox"
                     id="return-product-edit"
                     class="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500"
                   />
-                  <label
-                    for="return-product-edit"
-                    class="ml-3 text-sm font-medium text-gray-700"
-                  >
-                    Allow Product Returns
-                  </label>
-                </div>
-                <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <label class="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200">
+                    <span class="text-sm font-medium text-gray-700">Allow Returns</span>
+                  </label> -->
+                  <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
                     <input
                       v-model="form.batch_tracking_enabled"
                       type="checkbox"
@@ -416,7 +343,7 @@
                     />
                     <span class="text-sm font-medium text-gray-700">Enable batch tracking</span>
                   </label>
-                  <label class="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200">
+                  <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
                     <input
                       v-model="form.expiry_date_required"
                       type="checkbox"
@@ -425,7 +352,6 @@
                     />
                     <span class="text-sm font-medium text-gray-700">Expiry date required</span>
                   </label>
-                </div>
                 <!-- Current Image Display (Hidden) -->
                 <!-- <div
                   v-if="product?.image"
@@ -456,7 +382,7 @@
                 </div> -->
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- Form Actions -->
           <div class="flex justify-end gap-3 pt-4 mt-4 border-t border-gray-300">
@@ -547,6 +473,8 @@ const form = ref({
   type_id: "",
   discount_id: "",
   tax_id: "",
+  quantity: 0,
+  expire_date: "",
   shop_quantity_in_sales_unit: 0,
   store_quantity_in_purchase_unit: 0,
   low_stock_margin: 0,
@@ -720,6 +648,8 @@ watch(
         type_id: product.type_id || "",
         discount_id: product.discount_id || "",
         tax_id: product.tax_id || "",
+        quantity: product.quantity ?? 0,
+        expire_date: product.expire_date || "",
         shop_quantity_in_sales_unit: product.shop_quantity_in_sales_unit || 0,
         store_quantity_in_purchase_unit: product.store_quantity_in_purchase_unit || 0,
         low_stock_margin: product.low_stock_margin || 0,
@@ -858,11 +788,23 @@ const handleSubmit = () => {
   processing.value = true;
   errors.value = {};
 
-  // Prepare form data, excluding image when not replaced
-  const submitData = { ...form.value, _method: "PUT" };
-  if (!(submitData.image instanceof File)) {
-    delete submitData.image;
-  }
+  const submitData = {
+    name: form.value.name,
+    category_id: form.value.category_id || null,
+    purchase_price: form.value.purchase_price,
+    wholesale_price: form.value.wholesale_price,
+    retail_price: form.value.retail_price,
+    discount_id: form.value.discount_id || null,
+    quantity: form.value.quantity,
+    expire_date: form.value.expire_date || null,
+    shop_low_stock_margin: form.value.shop_low_stock_margin,
+    barcode: form.value.barcode || null,
+    return_product: form.value.return_product,
+    batch_tracking_enabled: form.value.batch_tracking_enabled,
+    expiry_date_required: form.value.expiry_date_required,
+    status: form.value.status,
+    _method: "PUT",
+  };
 
   router.post(
     route("products.update", props.product.id),

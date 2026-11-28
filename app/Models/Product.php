@@ -69,6 +69,8 @@ class Product extends Model
     // Virtual attributes that are always computed and returned with the model
     protected $appends = [
         'qty',
+        'quantity',
+        'expire_date',
         'shop_quantity_in_sales_unit',
         'shop_quantity_in_transfer_unit',
         'shop_quantity_in_purchase_unit'
@@ -192,6 +194,36 @@ class Product extends Model
     public function getQtyAttribute()
     {
         return $this->shop_quantity;
+    }
+
+    public function getQuantityAttribute()
+    {
+        return $this->openingStockBatch()?->received_sales_quantity ?? '0.00';
+    }
+
+    public function getExpireDateAttribute()
+    {
+        $expiryDate = $this->openingStockBatch()?->expiry_date;
+
+        return $expiryDate?->format('Y-m-d');
+    }
+
+    private function openingStockBatch(): ?ProductAvailableQuantity
+    {
+        if ($this->relationLoaded('batches')) {
+            return $this->batches->firstWhere('batch_number', 'OPENING')
+                ?? $this->batches->first(function ($batch) {
+                    return !$batch->goods_received_note_id
+                        && strpos((string) $batch->batch_number, 'BATCH-') === 0;
+                });
+        }
+
+        return $this->batches()->where('batch_number', 'OPENING')->first()
+            ?? $this->batches()
+                ->whereNull('goods_received_note_id')
+                ->where('batch_number', 'like', 'BATCH-%')
+                ->orderBy('id')
+                ->first();
     }
 
     public function getShopQuantityInSalesUnitAttribute()
