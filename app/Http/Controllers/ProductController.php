@@ -88,8 +88,6 @@ class ProductController extends Controller
             'wholesale_price',
             'retail_price',
             'market_price',
-            'quantity',
-            'expire_date',
             'shop_quantity',
             'shop_low_stock_margin',
             'purchase_unit_id',
@@ -248,6 +246,10 @@ class ProductController extends Controller
             'status' => 'required|integer|in:0,1',
         ]);
 
+        $openingQuantity = (float) $validated['quantity'];
+        $openingExpiryDate = $validated['expire_date'] ?? null;
+        unset($validated['quantity'], $validated['expire_date']);
+
         // Generate barcode if empty
         if (empty($validated['barcode'])) {
             $validated['barcode'] = $this->generateBarcode();
@@ -262,26 +264,9 @@ class ProductController extends Controller
         // Auto-generate search code from category's category_code
         $validated['product_search_code'] = $this->generateProductSearchCode($validated['category_id'] ?? null);
 
-        DB::transaction(function () use ($validated) {
+        DB::transaction(function () use ($validated, $openingQuantity, $openingExpiryDate) {
             $product = Product::create($validated);
-            $quantity = (float) $validated['quantity'];
-
-            if ($quantity > 0) {
-                if ($product->batch_tracking_enabled) {
-                    $product->batches()->create([
-                        'batch_number' => 'OPENING',
-                        'expiry_date' => $validated['expire_date'] ?? null,
-                        'available_sales_quantity' => $quantity,
-                        'received_sales_quantity' => $quantity,
-                        'quarantined_quantity' => 0,
-                    ]);
-
-                    app(BatchInventoryService::class)->syncSellableQuantity($product);
-                } else {
-                    $product->shop_quantity = $quantity;
-                    $product->save();
-                }
-            }
+            $this->saveOpeningBatch($product, $openingQuantity, $openingExpiryDate, true);
         });
 
         return redirect()->route('products.index')
@@ -354,6 +339,10 @@ class ProductController extends Controller
             'status' => 'required|integer|in:0,1',
         ]);
 
+        $openingQuantity = (float) $validated['quantity'];
+        $openingExpiryDate = $validated['expire_date'] ?? null;
+        unset($validated['quantity'], $validated['expire_date']);
+
         // Generate barcode if product doesn't have one
         if (empty($product->barcode) && empty($validated['barcode'])) {
             $validated['barcode'] = $this->generateBarcode();
@@ -369,7 +358,10 @@ class ProductController extends Controller
             $validated['expiry_date_required'] = $request->boolean('expiry_date_required');
         }
 
-        $product->update($validated);
+        DB::transaction(function () use ($product, $validated, $openingQuantity, $openingExpiryDate) {
+            $product->update($validated);
+            $this->saveOpeningBatch($product, $openingQuantity, $openingExpiryDate, false);
+        });
 
         return redirect()->route('products.index')
             ->with('success', 'Product updated successfully.');
@@ -431,6 +423,10 @@ class ProductController extends Controller
             'status' => 'required|integer|in:0,1',
         ]);
 
+        $openingQuantity = (float) $validated['quantity'];
+        $openingExpiryDate = $validated['expire_date'] ?? null;
+        unset($validated['quantity'], $validated['expire_date']);
+
         // Auto-generate barcode if not provided
         if (empty($validated['barcode'])) {
             $validated['barcode'] = $this->generateBarcode();
@@ -445,26 +441,9 @@ class ProductController extends Controller
         // Auto-generate search code from category's category_code
         $validated['product_search_code'] = $this->generateProductSearchCode($validated['category_id'] ?? null);
 
-        DB::transaction(function () use ($validated) {
+        DB::transaction(function () use ($validated, $openingQuantity, $openingExpiryDate) {
             $product = Product::create($validated);
-            $quantity = (float) $validated['quantity'];
-
-            if ($quantity > 0) {
-                if ($product->batch_tracking_enabled) {
-                    $product->batches()->create([
-                        'batch_number' => 'OPENING',
-                        'expiry_date' => $validated['expire_date'] ?? null,
-                        'available_sales_quantity' => $quantity,
-                        'received_sales_quantity' => $quantity,
-                        'quarantined_quantity' => 0,
-                    ]);
-
-                    app(BatchInventoryService::class)->syncSellableQuantity($product);
-                } else {
-                    $product->shop_quantity = $quantity;
-                    $product->save();
-                }
-            }
+            $this->saveOpeningBatch($product, $openingQuantity, $openingExpiryDate, true);
         });
 
         return redirect()->route('products.index')->with('success', 'Product duplicated successfully!');
@@ -540,6 +519,32 @@ class ProductController extends Controller
                     'expiry_date_required' => 'Every active batch needs an expiry date before requiring expiry tracking.',
                 ]);
             }
+        }
+    }
+
+    private function saveOpeningBatch(
+        Product $product,
+        float $quantity,
+        ?string $expiryDate,
+        bool $initializeShopQuantity
+    ): void {
+        $batch = $product->batches()->firstOrNew(['batch_number' => 'OPENING']);
+
+        if ($quantity > 0 || $expiryDate !== null || $batch->exists) {
+            $batch->expiry_date = $expiryDate;
+            $batch->available_sales_quantity = $quantity;
+            $batch->received_sales_quantity = $quantity;
+            $batch->quarantined_quantity = 0;
+            $batch->save();
+        }
+
+        if ($product->batch_tracking_enabled) {
+            if ($quantity > 0 || $batch->exists) {
+                app(BatchInventoryService::class)->syncSellableQuantity($product);
+            }
+        } elseif ($initializeShopQuantity && $quantity > 0) {
+            $product->shop_quantity = $quantity;
+            $product->save();
         }
     }
 
