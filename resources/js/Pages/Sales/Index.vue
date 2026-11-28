@@ -304,7 +304,7 @@
           </div>
 
           <!-- CENTER: Product Browsing -->
-          <div class="product-browse-card bg-white rounded-xl shadow-md border border-gray-200 p-4 flex flex-col">
+          <div class="product-browse-card bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-4 flex flex-col">
             <div class="flex items-center gap-1.5 mb-2.5 flex-shrink-0">
               <input
                 ref="productSearchField"
@@ -312,13 +312,13 @@
                 v-model="productFilters.search"
                 @input="filterProducts"
                 placeholder="🔍 Search products by name or search code..."
-                class="flex-1 px-3 py-2 bg-gray-50 text-gray-800 border border-gray-200 rounded-[5px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all text-sm"
+                class="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-100 border border-gray-200 dark:border-gray-600 rounded-lg placeholder-gray-400 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white dark:focus:bg-gray-700 transition-all text-sm"
               />
               <button
                 type="button"
                 @click="openProductModal"
                 title="Advanced filters (brand, type, discount, stock)"
-                class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-[5px] transition font-medium text-sm flex-shrink-0"
+                class="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-100 rounded-lg transition font-medium text-sm flex-shrink-0"
               >
                 ⚙️ Filters
               </button>
@@ -340,7 +340,7 @@
                   <div class="p-3">
                     <div class="flex items-start justify-between gap-1.5 mb-1.5">
                       <h4
-                        class="text-gray-900 font-semibold text-sm leading-snug line-clamp-2 flex-1"
+                        class="text-gray-900 dark:text-gray-100 font-semibold text-sm leading-snug line-clamp-2 flex-1"
                         :title="product.name"
                       >
                         {{ product.name }}
@@ -354,7 +354,7 @@
                     </div>
 
                     <div class="flex items-center justify-between gap-1.5">
-                      <span class="text-blue-700 font-bold text-base">
+                      <span class="text-blue-700 dark:text-blue-300 font-bold text-base">
                         {{ page.props.currency || "Rs." }}{{ parseFloat(getCurrentPrice(product) || 0).toFixed(2) }}
                       </span>
                       <span
@@ -379,7 +379,7 @@
             <!-- Infinite scroll status (loads more automatically on scroll, no click needed) -->
             <div
               v-if="filteredProducts.length > 0"
-              class="flex items-center justify-center gap-2 pt-2 mt-1 border-t border-gray-100 flex-shrink-0"
+              class="flex items-center justify-center gap-2 pt-2 mt-1 border-t border-gray-100 dark:border-gray-700 flex-shrink-0"
             >
               <span class="text-xs text-gray-500">
                 Showing {{ infiniteScrollProducts.length }} of {{ filteredProducts.length }}
@@ -3178,8 +3178,9 @@ select.no-arrow::-ms-expand {
 
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+  gap: 0.75rem;
+  padding: 0.25rem 0.25rem 0.75rem;
 }
 
 /* Category sidebar buttons */
@@ -3215,27 +3216,65 @@ select.no-arrow::-ms-expand {
 /* Product cards */
 .product-card {
   position: relative;
-  background: #fff;
-  border: 1px solid #f3f4f6;
-  border-radius: 10px;
+  min-height: 84px;
+  background: linear-gradient(145deg, #ffffff, #f8fafc);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.05);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, background 0.16s ease;
 }
 .product-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  border-color: #d1d5db;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+  border-color: #93c5fd;
 }
 .product-card:active {
-  transform: scale(0.97);
+  transform: scale(0.98);
 }
 .product-card-active {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 2px #2563eb;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35), 0 5px 14px rgba(37, 99, 235, 0.12);
 }
 .product-card-selected {
   border-color: #f59e0b;
-  box-shadow: 0 0 0 2px #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.45), 0 5px 14px rgba(245, 158, 11, 0.12);
+}
+
+.dark .product-browse-card {
+  background: #111827;
+  border-color: #374151;
+}
+
+.dark .product-grid-scroll {
+  scrollbar-color: #4b5563 #111827;
+}
+
+.dark .product-card {
+  background: linear-gradient(145deg, #1f2937, #18212f);
+  border-color: #374151;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+}
+
+.dark .product-card h4 {
+  color: #f9fafb;
+}
+
+.dark .product-card:hover {
+  background: linear-gradient(145deg, #273548, #1f2937);
+  border-color: #60a5fa;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.34);
+}
+
+.dark .product-card-active {
+  background: linear-gradient(145deg, #1e3a5f, #1f2937);
+  border-color: #60a5fa;
+}
+
+.dark .product-card-selected {
+  border-color: #fbbf24;
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.42), 0 6px 16px rgba(0, 0, 0, 0.3);
 }
 
 @media (max-width: 1399px) {
